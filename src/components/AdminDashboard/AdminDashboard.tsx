@@ -1,11 +1,21 @@
 import { useState, useEffect } from 'react'
+import type { FormEvent } from 'react'
 import { supabase } from '../../supabase'
-import { missions } from '../../lib/missions'
+import { missions as missionsApi } from '../../lib/missions'
 import { support } from '../../lib/support'
 import { getErrorMessage } from '../../lib/errors'
-import type { Mission, User, ContactRequest, SitePrice, UserRole, CRMContact, CRMInteraction, CRMTask, ContactStatus, InteractionType, TaskStatus, TaskPriority, SalesPipeline, PipelineStage, SalesOpportunity, OpportunityStatus, ActivityType, CalendarEvent, CollaboratorAvailability, EventType, SiteContent, SiteContentSection, SiteContentLanguage } from '../../types'
-import { contactStatusLabels, interactionTypeLabels, taskPriorityLabels, taskStatusLabels, opportunityStatusLabels, activityTypeLabels, eventTypeLabels, siteContentSections } from '../../types'
+import { positioningContentSeeds } from '../../lib/site-positioning'
+import { parseTestimonial } from '../../lib/testimonials'
+import type { Testimonial, TestimonialDraft } from '../../lib/testimonials'
+import PartnerManagement from '../Partners/PartnerManagement'
+import AdminTeamAccess from './AdminTeamAccess'
+import SiteContentQuickEditor from './SiteContentQuickEditor'
+import { defaultGeographicCoverage, geographicCountryOptions, geographicCoverageContentKey, geographicCoverageContentSeed, parseGeographicCoverage } from '../../lib/geographic-coverage'
+import type { GeographicCoverageConfig } from '../../lib/geographic-coverage'
+import type { Mission, User, UserRole, CRMContact, CRMInteraction, CRMTask, ContactStatus, InteractionType, TaskStatus, TaskPriority, SalesPipeline, PipelineStage, SalesOpportunity, OpportunityStatus, ActivityType, CalendarEvent, CollaboratorAvailability, EventType, SiteContent, SiteContentSection, SiteContentLanguage } from '../../types'
+import { contactStatusLabels, interactionTypeLabels, taskPriorityLabels, taskStatusLabels, opportunityStatusLabels, activityTypeLabels, eventTypeLabels, siteContentSections, missionTypeLabels, missionStatusLabels } from '../../types'
 import './AdminDashboard.css'
+import './GeographicManagement.css'
 
 interface AdminDashboardProps {
   adminId: string
@@ -29,6 +39,7 @@ interface SitePrice {
   description_fr: string
   description_en: string
   amount: string
+  is_visible?: boolean
 }
 
 export default function AdminDashboard({ adminId }: AdminDashboardProps) {
@@ -41,11 +52,12 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
   const [pageViews, setPageViews] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'missions' | 'collaborators' | 'clients' | 'users' | 'messages' | 'tarifs' | 'stats' | 'support' | 'settings' | 'crm' | 'pipeline' | 'calendar' | 'content'>('missions')
+  const [activeTab, setActiveTab] = useState<'missions' | 'collaborators' | 'partners' | 'team' | 'clients' | 'users' | 'messages' | 'tarifs' | 'stats' | 'support' | 'settings' | 'crm' | 'pipeline' | 'calendar' | 'content' | 'testimonials' | 'geographic' | 'legal'>('missions')
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null)
   const [selectedCollaborator, setSelectedCollaborator] = useState<string>('')
   const [editingPrice, setEditingPrice] = useState<SitePrice | null>(null)
-  const [priceAmount, setPriceAmount] = useState('')
+  const [priceFormData, setPriceFormData] = useState({ title_fr: '', title_en: '', description_fr: '', description_en: '', amount: '' })
+  const [updatingPriceId, setUpdatingPriceId] = useState<number | null>(null)
   
   // Collaborator form states
   const [showCollabForm, setShowCollabForm] = useState(false)
@@ -79,6 +91,10 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
   // Site settings states
   const [publicRegistrationEnabled, setPublicRegistrationEnabled] = useState(true)
   const [missionFormEnabled, setMissionFormEnabled] = useState(true)
+  const [contactPhone, setContactPhone] = useState('+33 (0) 7 69 96 07 66')
+  const [phoneDisplayEnabled, setPhoneDisplayEnabled] = useState(true)
+  const [whatsappNumber, setWhatsappNumber] = useState('+33 (0) 7 69 96 07 66')
+  const [whatsappDisplayEnabled, setWhatsappDisplayEnabled] = useState(false)
   const [crmEnabled, setCrmEnabled] = useState(false)
   const [salesPipelineEnabled, setSalesPipelineEnabled] = useState(false)
   const [invoicesEnabled, setInvoicesEnabled] = useState(false)
@@ -93,6 +109,12 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
   const [availabilityEnabled, setAvailabilityEnabled] = useState(false)
   const [feedbackEnabled, setFeedbackEnabled] = useState(false)
   const [isUpdatingSettings, setIsUpdatingSettings] = useState(false)
+
+  // Legal documents states
+  const [legalDocuments, setLegalDocuments] = useState<Array<{ id: string; type: string; file_name: string; file_path: string; updated_at: string }>>([])
+  const [uploadingLegalDoc, setUploadingLegalDoc] = useState(false)
+  const [legalDocType, setLegalDocType] = useState('mentions_legales')
+  const [legalDocFile, setLegalDocFile] = useState<File | null>(null)
 
   // CRM states
   const [crmContacts, setCrmContacts] = useState<CRMContact[]>([])
@@ -158,31 +180,57 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
   const [selectedContentLanguage, setSelectedContentLanguage] = useState<SiteContentLanguage>('fr')
   const [editingContent, setEditingContent] = useState<SiteContent | null>(null)
   const [contentFormData, setContentFormData] = useState({ content: '' })
+  const [testimonials, setTestimonials] = useState<Testimonial[]>([])
+  const [geographicCoverage, setGeographicCoverage] = useState<GeographicCoverageConfig>(defaultGeographicCoverage)
+  const [isSavingGeographicCoverage, setIsSavingGeographicCoverage] = useState(false)
+  const [geographicCoverageSaved, setGeographicCoverageSaved] = useState(false)
+  const [editingTestimonialKey, setEditingTestimonialKey] = useState<string | null>(null)
+  const [showTestimonialForm, setShowTestimonialForm] = useState(false)
+  const [testimonialFormData, setTestimonialFormData] = useState<TestimonialDraft>({
+    name: '',
+    organization: '',
+    role: '',
+    quote_fr: '',
+    quote_en: '',
+    consent_confirmed: false,
+    is_published: false,
+  })
 
   const loadData = async () => {
     try {
       setLoading(true)
       if (!supabase) return
 
-      const [missionsData, collabsData, clientsData, allUsersData, contactData, pricesData, viewsData, ticketsData, allSettingsData, crmContactsData, crmInteractionsData, crmTasksData, salesPipelinesData, pipelineStagesData, salesOpportunitiesData, calendarEventsData, collaboratorAvailabilitiesData, siteContentData] = await Promise.all([
-        missions.listAllMissions(),
-        supabase.from('users').select('*').eq('role', 'collaborator'),
+      const { data: settingsData, error: settingsError } = await supabase.from('site_settings').select('*')
+      if (settingsError) throw settingsError
+      const settings = settingsData || []
+      const getSetting = (key: string, defaultValue: boolean) => {
+        const setting = settings.find((item) => item.key === key)
+        return setting ? setting.value === 'true' : defaultValue
+      }
+      const pipelineEnabled = getSetting('sales_pipeline_enabled', false)
+      const calendarModuleEnabled = getSetting('calendar_enabled', false)
+      const availabilityModuleEnabled = getSetting('availability_enabled', false)
+
+      const [missionsData, collabsData, clientsData, allUsersData, contactData, pricesData, viewsData, ticketsData, crmContactsData, crmInteractionsData, crmTasksData, salesPipelinesData, pipelineStagesData, salesOpportunitiesData, calendarEventsData, collaboratorAvailabilitiesData, siteContentData, legalDocsData] = await Promise.all([
+        missionsApi.listAllMissions(),
+        supabase.from('users').select('*').in('role', ['collaborator', 'partner']).eq('is_active', true),
         supabase.from('users').select('*').eq('role', 'client').order('created_at', { ascending: false }),
         supabase.from('users').select('*').order('created_at', { ascending: false }),
         supabase.from('contact_requests').select('*').order('created_at', { ascending: false }),
         supabase.from('prices').select('*').order('id'),
         supabase.from('page_views').select('*'),
         support.listAllTickets().catch(() => []),
-        supabase.from('site_settings').select('*'),
         supabase.from('crm_contacts').select('*').order('created_at', { ascending: false }),
         supabase.from('crm_interactions').select('*').order('created_at', { ascending: false }),
         supabase.from('crm_tasks').select('*').order('created_at', { ascending: false }),
-        supabase.from('sales_pipelines').select('*'),
-        supabase.from('pipeline_stages').select('*').order('order_index'),
-        supabase.from('sales_opportunities').select('*').order('created_at', { ascending: false }),
-        supabase.from('calendar_events').select('*').order('start_date'),
-        supabase.from('collaborator_availability').select('*').order('date'),
+        pipelineEnabled ? supabase.from('sales_pipelines').select('*') : Promise.resolve({ data: [] }),
+        pipelineEnabled ? supabase.from('pipeline_stages').select('*').order('order_index') : Promise.resolve({ data: [] }),
+        pipelineEnabled ? supabase.from('sales_opportunities').select('*').order('created_at', { ascending: false }) : Promise.resolve({ data: [] }),
+        calendarModuleEnabled ? supabase.from('calendar_events').select('*').order('start_date') : Promise.resolve({ data: [] }),
+        availabilityModuleEnabled ? supabase.from('collaborator_availability').select('*').order('date') : Promise.resolve({ data: [] }),
         supabase.from('site_content').select('*').order('section'),
+        supabase.from('legal_documents').select('*').order('updated_at', { ascending: false }),
       ])
 
       setMissions(missionsData)
@@ -201,17 +249,39 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
       setSalesOpportunities((salesOpportunitiesData as any).data || [])
       setCalendarEvents((calendarEventsData as any).data || [])
       setCollaboratorAvailabilities((collaboratorAvailabilitiesData as any).data || [])
-      setSiteContent((siteContentData as any).data || [])
+      const existingContent = ((siteContentData as any).data || []) as SiteContent[]
+      const missingPositioningContent = positioningContentSeeds.filter((seed) =>
+        !existingContent.some((item) => item.section === seed.section && item.key === seed.key && item.language === seed.language),
+      )
+      const hasGeographicConfig = existingContent.some((item) => item.section === 'geographic' && item.key === geographicCoverageContentKey && item.language === 'fr')
+      const missingGeographicConfig = hasGeographicConfig ? [] : [geographicCoverageContentSeed]
+      let addedCmsContent: SiteContent[] = []
+      if (missingPositioningContent.length + missingGeographicConfig.length > 0) {
+        const { data, error: contentSeedError } = await supabase
+          .from('site_content')
+          .upsert([...missingPositioningContent, ...missingGeographicConfig].map((item) => ({ ...item, updated_by: adminId })), { onConflict: 'section,key,language' })
+          .select('*')
+        if (contentSeedError) throw contentSeedError
+        addedCmsContent = (data || []) as SiteContent[]
+      }
+      const geographicConfigRow = [...existingContent, ...addedCmsContent].find((item) => item.section === 'geographic' && item.key === geographicCoverageContentKey && item.language === 'fr')
+      setGeographicCoverage(geographicConfigRow ? parseGeographicCoverage(geographicConfigRow.content) : defaultGeographicCoverage)
+      const storedTestimonials = existingContent
+        .filter((item) => item.section === 'testimonials')
+        .map(parseTestimonial)
+        .filter((item): item is Testimonial => item !== null)
+      setTestimonials(storedTestimonials)
+      setSiteContent([...existingContent.filter((item) => item.section !== 'testimonials' && item.section !== 'geographic'), ...addedCmsContent.filter((item) => item.section !== 'geographic')])
+      setLegalDocuments((legalDocsData as any).data || [])
       
       // Charger tous les paramètres
-      const settings = (allSettingsData as any).data || []
-      const getSetting = (key: string, defaultValue: boolean) => {
-        const setting = settings.find((s: any) => s.key === key)
-        return setting ? setting.value === 'true' : defaultValue
-      }
-      
       setPublicRegistrationEnabled(getSetting('public_registration_enabled', true))
       setMissionFormEnabled(getSetting('mission_form_enabled', true))
+      const getTextSetting = (key: string, defaultValue: string) => settings.find((setting: any) => setting.key === key)?.value ?? defaultValue
+      setContactPhone(getTextSetting('contact_phone', '+33 (0) 7 69 96 07 66'))
+      setPhoneDisplayEnabled(getSetting('phone_display_enabled', true))
+      setWhatsappNumber(getTextSetting('whatsapp_number', '+33 (0) 7 69 96 07 66'))
+      setWhatsappDisplayEnabled(getSetting('whatsapp_display_enabled', false))
       setCrmEnabled(getSetting('crm_enabled', false))
       setSalesPipelineEnabled(getSetting('sales_pipeline_enabled', false))
       setInvoicesEnabled(getSetting('invoices_enabled', false))
@@ -237,23 +307,157 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
   }, [])
 
   const handleUpdatePrice = async () => {
-    if (!editingPrice || !priceAmount || !supabase) return
+    if (!editingPrice || !supabase) return
 
     try {
       const { error: updateError } = await supabase
         .from('prices')
-        .update({ amount: priceAmount })
+        .update(priceFormData)
         .eq('id', editingPrice.id)
 
       if (updateError) throw updateError
 
       setPrices((prev) =>
-        prev.map((p) => (p.id === editingPrice.id ? { ...p, amount: priceAmount } : p)),
+        prev.map((p) => (p.id === editingPrice.id ? { ...p, ...priceFormData } : p)),
       )
       setEditingPrice(null)
-      setPriceAmount('')
+      setPriceFormData({ title_fr: '', title_en: '', description_fr: '', description_en: '', amount: '' })
     } catch (err) {
       setError(getErrorMessage(err) || 'Erreur de mise à jour du tarif')
+    }
+  }
+
+  const resetTestimonialForm = () => {
+    setEditingTestimonialKey(null)
+    setShowTestimonialForm(false)
+    setTestimonialFormData({ name: '', organization: '', role: '', quote_fr: '', quote_en: '', consent_confirmed: false, is_published: false })
+  }
+
+  const handleSaveTestimonial = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!supabase) return
+    if (testimonialFormData.is_published && !testimonialFormData.consent_confirmed) {
+      setError('Confirmez l’autorisation de publication avant de publier ce témoignage.')
+      return
+    }
+
+    const key = editingTestimonialKey ?? `experience-${crypto.randomUUID()}`
+    try {
+      const { data, error: saveError } = await supabase
+        .from('site_content')
+        .upsert({
+          section: 'testimonials',
+          key,
+          language: 'fr',
+          content: JSON.stringify(testimonialFormData),
+          updated_at: new Date().toISOString(),
+          updated_by: adminId,
+        }, { onConflict: 'section,key,language' })
+        .select('section,key,content')
+        .single()
+      if (saveError) throw saveError
+      const savedTestimonial = parseTestimonial(data)
+      if (!savedTestimonial) throw new Error('Le témoignage enregistré est incomplet.')
+
+      setTestimonials((current) => current.some((item) => item.id === key)
+        ? current.map((item) => item.id === key ? savedTestimonial : item)
+        : [...current, savedTestimonial])
+      setError(null)
+      resetTestimonialForm()
+    } catch (err) {
+      setError(getErrorMessage(err) || 'Erreur lors de l’enregistrement du témoignage')
+    }
+  }
+
+  const handleDeleteTestimonial = async (testimonialId: string) => {
+    if (!supabase || !confirm('Supprimer définitivement ce témoignage ?')) return
+    try {
+      const { error: deleteError } = await supabase
+        .from('site_content')
+        .delete()
+        .eq('section', 'testimonials')
+        .eq('key', testimonialId)
+        .eq('language', 'fr')
+      if (deleteError) throw deleteError
+      setTestimonials((current) => current.filter((item) => item.id !== testimonialId))
+    } catch (err) {
+      setError(getErrorMessage(err) || 'Erreur lors de la suppression du témoignage')
+    }
+  }
+
+  const handleToggleGeographicCountry = (group: keyof GeographicCoverageConfig, countryId: string, checked: boolean) => {
+    setGeographicCoverageSaved(false)
+    setGeographicCoverage((current) => ({
+      ...current,
+      [group]: checked
+        ? [...new Set([...current[group], countryId])]
+        : current[group].filter((id) => id !== countryId),
+    }))
+  }
+
+  const handleSaveGeographicCoverage = async () => {
+    if (!supabase) return
+    try {
+      setIsSavingGeographicCoverage(true)
+      const { data, error: saveError } = await supabase
+        .from('site_content')
+        .upsert({
+          section: 'geographic',
+          key: geographicCoverageContentKey,
+          language: 'fr',
+          content: JSON.stringify(geographicCoverage),
+          updated_at: new Date().toISOString(),
+          updated_by: adminId,
+        }, { onConflict: 'section,key,language' })
+        .select('content')
+        .single()
+      if (saveError) throw saveError
+      setGeographicCoverage(parseGeographicCoverage(data.content))
+      setGeographicCoverageSaved(true)
+      setError(null)
+    } catch (err) {
+      setError(getErrorMessage(err) || 'Erreur lors de l’enregistrement de la carte')
+    } finally {
+      setIsSavingGeographicCoverage(false)
+    }
+  }
+
+  const handleTogglePriceVisibility = async (price: SitePrice) => {
+    if (!supabase) return
+    const isVisible = price.is_visible !== false
+
+    try {
+      setUpdatingPriceId(price.id)
+      const { error: updateError } = await supabase
+        .from('prices')
+        .update({ is_visible: !isVisible })
+        .eq('id', price.id)
+      if (updateError) throw updateError
+      setPrices((current) => current.map((item) => item.id === price.id ? { ...item, is_visible: !isVisible } : item))
+    } catch (err) {
+      setError(getErrorMessage(err) || 'Erreur de mise à jour de la visibilité du tarif')
+    } finally {
+      setUpdatingPriceId(null)
+    }
+  }
+
+  const handleSavePublicContact = async () => {
+    if (!supabase) return
+
+    try {
+      setIsUpdatingSettings(true)
+      const { error: updateError } = await supabase.from('site_settings').upsert([
+        { key: 'contact_phone', value: contactPhone },
+        { key: 'phone_display_enabled', value: String(phoneDisplayEnabled) },
+        { key: 'whatsapp_number', value: whatsappNumber },
+        { key: 'whatsapp_display_enabled', value: String(whatsappDisplayEnabled) },
+      ], { onConflict: 'key' })
+      if (updateError) throw updateError
+      setError(null)
+    } catch (err) {
+      setError(getErrorMessage(err) || 'Erreur lors de l’enregistrement des coordonnées')
+    } finally {
+      setIsUpdatingSettings(false)
     }
   }
 
@@ -298,6 +502,97 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
       setError(getErrorMessage(err) || 'Erreur de mise à jour du paramètre')
     } finally {
       setIsUpdatingSettings(false)
+    }
+  }
+
+  const handleUploadLegalDocument = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!supabase || !legalDocFile) return
+
+    try {
+      setUploadingLegalDoc(true)
+      setError(null)
+
+      const fileName = `${Date.now()}_${legalDocFile.name}`
+      const filePath = `legal-documents/${fileName}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('legal-documents')
+        .upload(filePath, legalDocFile)
+
+      if (uploadError) throw uploadError
+
+      const { error: dbError } = await supabase
+        .from('legal_documents')
+        .insert({
+          type: legalDocType,
+          file_name: legalDocFile.name,
+          file_path: filePath,
+          updated_by: adminId,
+        })
+
+      if (dbError) throw dbError
+
+      const { data: updatedDocs } = await supabase
+        .from('legal_documents')
+        .select('*')
+        .order('updated_at', { ascending: false })
+
+      setLegalDocuments((updatedDocs as any) || [])
+      setLegalDocFile(null)
+      setLegalDocType('mentions_legales')
+      alert('✅ Document juridique téléchargé avec succès!')
+    } catch (err) {
+      setError(getErrorMessage(err) || 'Erreur lors du téléchargement')
+    } finally {
+      setUploadingLegalDoc(false)
+    }
+  }
+
+  const handleDeleteLegalDocument = async (id: string, filePath: string) => {
+    if (!supabase || !confirm('Supprimer ce document juridique ?')) return
+
+    try {
+      const { error: storageError } = await supabase.storage
+        .from('legal-documents')
+        .remove([filePath])
+
+      if (storageError) {
+        console.error('Storage delete error:', storageError)
+      }
+
+      const { error: dbError } = await supabase
+        .from('legal_documents')
+        .delete()
+        .eq('id', id)
+
+      if (dbError) throw dbError
+
+      setLegalDocuments((prev) => prev.filter((doc) => doc.id !== id))
+    } catch (err) {
+      setError(getErrorMessage(err) || 'Erreur lors de la suppression')
+    }
+  }
+
+  const handleDownloadLegalDocument = async (filePath: string, fileName: string) => {
+    if (!supabase) return
+
+    try {
+      const { data, error } = await supabase.storage
+        .from('legal-documents')
+        .createSignedUrl(filePath, 3600)
+
+      if (error) throw error
+
+      const link = document.createElement('a')
+      link.href = data.signedUrl
+      link.download = fileName
+      link.target = '_blank'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    } catch (err) {
+      setError(getErrorMessage(err) || 'Erreur lors du téléchargement')
     }
   }
 
@@ -833,6 +1128,18 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
             👥 Collaborateurs ({collaborators.length})
           </button>
           <button
+            className={activeTab === 'partners' ? 'active' : ''}
+            onClick={() => setActiveTab('partners')}
+          >
+            🤝 Partenaires
+          </button>
+          <button
+            className={activeTab === 'team' ? 'active' : ''}
+            onClick={() => setActiveTab('team')}
+          >
+            Équipe & droits
+          </button>
+          <button
             className={activeTab === 'clients' ? 'active' : ''}
             onClick={() => setActiveTab('clients')}
           >
@@ -893,10 +1200,22 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
             </button>
           )}
           <button
+            className={activeTab === 'geographic' ? 'active' : ''}
+            onClick={() => setActiveTab('geographic')}
+          >
+            🌍 Carte
+          </button>
+          <button
             className={activeTab === 'content' ? 'active' : ''}
             onClick={() => setActiveTab('content')}
           >
             📝 Contenu ({siteContent.length})
+          </button>
+          <button
+            className={activeTab === 'testimonials' ? 'active' : ''}
+            onClick={() => setActiveTab('testimonials')}
+          >
+            💬 Témoignages ({testimonials.length})
           </button>
           <button
             className={activeTab === 'stats' ? 'active' : ''}
@@ -904,10 +1223,19 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
           >
             📊 Statistiques
           </button>
+          <button
+            className={activeTab === 'legal' ? 'active' : ''}
+            onClick={() => setActiveTab('legal')}
+          >
+            ⚖️ Documents juridiques ({legalDocuments.length})
+          </button>
         </div>
       </header>
 
       {error && <p className="admin-error">{error}</p>}
+
+      {activeTab === 'partners' && <PartnerManagement adminId={adminId} />}
+      {activeTab === 'team' && <AdminTeamAccess />}
 
       {activeTab === 'missions' && (
         <section className="admin-section">
@@ -1896,10 +2224,10 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
                     <button
                       onClick={() => {
                         const newRole = prompt(
-                          `Nouveau rôle pour ${client.email} (admin, client, collaborateur):`,
+                          `Nouveau rôle pour ${client.email} (admin, moderator, client, collaborator):`,
                           client.role
                         )
-                        if (newRole && ['admin', 'client', 'collaborator'].includes(newRole)) {
+                        if (newRole && ['admin', 'moderator', 'client', 'collaborator'].includes(newRole)) {
                           handleUpdateUserRole(client.id, newRole as UserRole)
                         }
                       }}
@@ -2090,10 +2418,10 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
                   <button
                     onClick={() => {
                       const newRole = prompt(
-                        `Nouveau rôle pour ${user.email} (admin, client, collaborator):`,
+                        `Nouveau rôle pour ${user.email} (admin, moderator, client, collaborator):`,
                         user.role
                       )
-                      if (newRole && ['admin', 'client', 'collaborator'].includes(newRole)) {
+                      if (newRole && ['admin', 'moderator', 'client', 'collaborator'].includes(newRole)) {
                         handleUpdateUserRole(user.id, newRole as UserRole)
                       }
                     }}
@@ -2334,11 +2662,25 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
                   <p className="price-amount">
                     <strong>Montant:</strong> {price.amount} €
                   </p>
+                  <p>{price.is_visible === false ? 'Masqué sur le site public' : 'Visible sur le site public'}</p>
                 </div>
+                <button
+                  onClick={() => handleTogglePriceVisibility(price)}
+                  className="btn-edit"
+                  disabled={updatingPriceId === price.id}
+                >
+                  {updatingPriceId === price.id ? 'Enregistrement…' : price.is_visible === false ? 'Afficher' : 'Masquer'}
+                </button>
                 <button
                   onClick={() => {
                     setEditingPrice(price)
-                    setPriceAmount(price.amount)
+                    setPriceFormData({
+                      title_fr: price.title_fr,
+                      title_en: price.title_en,
+                      description_fr: price.description_fr,
+                      description_en: price.description_en,
+                      amount: price.amount,
+                    })
                   }}
                   className="btn-edit"
                 >
@@ -2346,19 +2688,18 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
                 </button>
                 {editingPrice?.id === price.id && (
                   <div className="price-edit-form">
-                    <input
-                      type="text"
-                      value={priceAmount}
-                      onChange={(e) => setPriceAmount(e.target.value)}
-                      placeholder="Nouveau montant"
-                    />
+                    <label>Titre (français)<input required value={priceFormData.title_fr} onChange={(e) => setPriceFormData({ ...priceFormData, title_fr: e.target.value })} /></label>
+                    <label>Title (English)<input required value={priceFormData.title_en} onChange={(e) => setPriceFormData({ ...priceFormData, title_en: e.target.value })} /></label>
+                    <label>Description (français)<textarea required rows={3} value={priceFormData.description_fr} onChange={(e) => setPriceFormData({ ...priceFormData, description_fr: e.target.value })} /></label>
+                    <label>Description (English)<textarea required rows={3} value={priceFormData.description_en} onChange={(e) => setPriceFormData({ ...priceFormData, description_en: e.target.value })} /></label>
+                    <label>Tarif<input required value={priceFormData.amount} onChange={(e) => setPriceFormData({ ...priceFormData, amount: e.target.value })} placeholder="350 EUR" /></label>
                     <button onClick={handleUpdatePrice} className="btn-confirm">
                       Valider
                     </button>
                     <button
                       onClick={() => {
                         setEditingPrice(null)
-                        setPriceAmount('')
+                        setPriceFormData({ title_fr: '', title_en: '', description_fr: '', description_en: '', amount: '' })
                       }}
                       className="btn-cancel"
                     >
@@ -2382,6 +2723,29 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
             padding: '2rem',
             maxWidth: '800px'
           }}>
+            <h3 style={{ marginBottom: '1rem', color: '#171819' }}>Coordonnées publiques</h3>
+            <div style={{ display: 'grid', gap: '1rem', marginBottom: '2rem' }}>
+              <label>
+                Téléphone public
+                <input type="tel" value={contactPhone} onChange={(event) => setContactPhone(event.target.value)} style={{ display: 'block', width: '100%', marginTop: '0.35rem', padding: '0.65rem' }} />
+              </label>
+              <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <input type="checkbox" checked={phoneDisplayEnabled} onChange={(event) => setPhoneDisplayEnabled(event.target.checked)} />
+                Afficher le téléphone sur le site
+              </label>
+              <label>
+                Numéro WhatsApp (indicatif pays inclus)
+                <input type="tel" value={whatsappNumber} onChange={(event) => setWhatsappNumber(event.target.value)} style={{ display: 'block', width: '100%', marginTop: '0.35rem', padding: '0.65rem' }} />
+              </label>
+              <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <input type="checkbox" checked={whatsappDisplayEnabled} onChange={(event) => setWhatsappDisplayEnabled(event.target.checked)} />
+                Afficher le lien WhatsApp sur le site
+              </label>
+              <button onClick={handleSavePublicContact} className="btn-confirm" disabled={isUpdatingSettings}>
+                {isUpdatingSettings ? 'Enregistrement…' : 'Enregistrer les coordonnées'}
+              </button>
+            </div>
+
             <h3 style={{ marginBottom: '1.5rem', color: '#171819' }}>Fonctionnalités principales</h3>
             
             {/* Inscription publique */}
@@ -4098,9 +4462,127 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
         </section>
       )}
 
+      {activeTab === 'geographic' && (
+        <section className="admin-section geographic-management">
+          <h2>Carte de couverture</h2>
+          <p className="geographic-management-intro">Choisis les pays à afficher dans chaque catégorie. Un pays peut appartenir à plusieurs catégories; la carte montrera alors le recouvrement.</p>
+          <div className="geographic-management-groups">
+            {([
+              { key: 'interventionCountryIds', title: 'Zones d’intervention' },
+              { key: 'clientCountryIds', title: 'Zones de clientèle' },
+              { key: 'officeCountryIds', title: 'Bureaux' },
+            ] as const).map((group) => (
+              <fieldset className="geographic-management-group" key={group.key}>
+                <legend>{group.title}</legend>
+                {geographicCountryOptions.map((country) => (
+                  <label key={country.id}>
+                    <input
+                      type="checkbox"
+                      checked={geographicCoverage[group.key].includes(country.id)}
+                      onChange={(event) => handleToggleGeographicCountry(group.key, country.id, event.target.checked)}
+                    />
+                    {country.name_fr}
+                  </label>
+                ))}
+              </fieldset>
+            ))}
+          </div>
+          <div className="geographic-management-footer">
+            <p>Les pays cochés dans plusieurs groupes seront indiqués comme zones communes sur la carte.</p>
+            <div className="geographic-management-save">
+              {geographicCoverageSaved && <p role="status">Carte enregistrée.</p>}
+              <button className="btn-confirm" onClick={handleSaveGeographicCoverage} disabled={isSavingGeographicCoverage}>
+                {isSavingGeographicCoverage ? 'Enregistrement…' : 'Enregistrer la carte'}
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {activeTab === 'testimonials' && (
+        <section className="admin-section testimonial-management">
+          <div className="testimonial-heading">
+            <div>
+              <h2>Retours d’expérience</h2>
+              <p>Ajoute uniquement des retours authentiques. Ils restent privés tant qu’ils ne sont pas publiés.</p>
+            </div>
+            {!showTestimonialForm && (
+              <button className="btn-confirm" onClick={() => { setEditingTestimonialKey(null); setTestimonialFormData({ name: '', organization: '', role: '', quote_fr: '', quote_en: '', consent_confirmed: false, is_published: false }); setShowTestimonialForm(true) }}>
+                Ajouter un témoignage
+              </button>
+            )}
+          </div>
+
+          {testimonials.length === 0 && !showTestimonialForm && (
+            <div className="testimonial-empty">Aucun témoignage pour le moment. Les retours publiés apparaîtront sur le site après confirmation de l’autorisation.</div>
+          )}
+
+          {testimonials.length > 0 && (
+            <div className="testimonial-admin-list">
+              {testimonials.map((testimonial) => (
+                <article className="testimonial-admin-item" key={testimonial.id}>
+                  <div className="testimonial-admin-meta">
+                    <strong>{testimonial.name}</strong>
+                    <span className={testimonial.is_published && testimonial.consent_confirmed ? 'testimonial-status published' : 'testimonial-status'}>
+                      {testimonial.is_published && testimonial.consent_confirmed ? 'Publié' : 'Brouillon'}
+                    </span>
+                  </div>
+                  <p>{testimonial.quote_fr}</p>
+                  <small>{[testimonial.role, testimonial.organization].filter(Boolean).join(' · ')}</small>
+                  <div className="testimonial-admin-actions">
+                    <button className="btn-edit" onClick={() => { setEditingTestimonialKey(testimonial.id); setTestimonialFormData({ name: testimonial.name, organization: testimonial.organization, role: testimonial.role, quote_fr: testimonial.quote_fr, quote_en: testimonial.quote_en, consent_confirmed: testimonial.consent_confirmed, is_published: testimonial.is_published }); setShowTestimonialForm(true) }}>
+                      Modifier
+                    </button>
+                    <button className="btn-delete" onClick={() => handleDeleteTestimonial(testimonial.id)}>Supprimer</button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+
+          {showTestimonialForm && (
+            <form className="testimonial-form" onSubmit={handleSaveTestimonial}>
+              <h3>{editingTestimonialKey ? 'Modifier le témoignage' : 'Nouveau témoignage'}</h3>
+              <label>Nom affiché
+                <input required value={testimonialFormData.name} onChange={(event) => setTestimonialFormData({ ...testimonialFormData, name: event.target.value })} />
+              </label>
+              <div className="testimonial-form-row">
+                <label>Fonction
+                  <input value={testimonialFormData.role} onChange={(event) => setTestimonialFormData({ ...testimonialFormData, role: event.target.value })} />
+                </label>
+                <label>Organisation
+                  <input value={testimonialFormData.organization} onChange={(event) => setTestimonialFormData({ ...testimonialFormData, organization: event.target.value })} />
+                </label>
+              </div>
+              <label>Témoignage (français)
+                <textarea required rows={4} value={testimonialFormData.quote_fr} onChange={(event) => setTestimonialFormData({ ...testimonialFormData, quote_fr: event.target.value })} />
+              </label>
+              <label>Testimonial (English, facultatif)
+                <textarea rows={4} value={testimonialFormData.quote_en} onChange={(event) => setTestimonialFormData({ ...testimonialFormData, quote_en: event.target.value })} />
+              </label>
+              <label className="testimonial-checkbox">
+                <input type="checkbox" checked={testimonialFormData.consent_confirmed} onChange={(event) => setTestimonialFormData({ ...testimonialFormData, consent_confirmed: event.target.checked, is_published: event.target.checked ? testimonialFormData.is_published : false })} />
+                J’ai l’autorisation explicite de publier ce témoignage et le nom associé.
+              </label>
+              <label className="testimonial-checkbox">
+                <input type="checkbox" checked={testimonialFormData.is_published} disabled={!testimonialFormData.consent_confirmed} onChange={(event) => setTestimonialFormData({ ...testimonialFormData, is_published: event.target.checked })} />
+                Publier sur le site
+              </label>
+              <div className="testimonial-admin-actions">
+                <button className="btn-confirm" type="submit">Enregistrer</button>
+                <button className="btn-cancel" type="button" onClick={resetTestimonialForm}>Annuler</button>
+              </div>
+            </form>
+          )}
+        </section>
+      )}
+
       {activeTab === 'content' && (
         <section className="admin-section">
-          <h2>Édition du contenu du site</h2>
+          <h2>Contenu du site</h2>
+          <SiteContentQuickEditor adminId={adminId} />
+          <details className="admin-content-advanced">
+            <summary>Autres contenus et édition avancée</summary>
           
           <div style={{ marginBottom: '1.5rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
             <div>
@@ -4260,6 +4742,7 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
               </div>
             </div>
           )}
+          </details>
         </section>
       )}
 
@@ -4299,6 +4782,132 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
               <div className="stat-value">{pageViews}</div>
               <div className="stat-label">Vues du site</div>
             </div>
+          </div>
+        </section>
+      )}
+
+      {activeTab === 'legal' && (
+        <section className="admin-section">
+          <h2>Documents juridiques</h2>
+          <p style={{ marginBottom: '1.5rem', color: '#666' }}>
+            Gérez les documents juridiques du site (mentions légales, conditions généales, RGPD, etc.).
+            Ces documents seront accessibles aux visiteurs via le site public.
+          </p>
+
+          <form onSubmit={handleUploadLegalDocument} style={{ marginBottom: '2rem', padding: '1.5rem', background: '#f5f5f5', borderRadius: '8px' }}>
+            <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                  Type de document *
+                </label>
+                <select
+                  value={legalDocType}
+                  onChange={(e) => setLegalDocType(e.target.value)}
+                  required
+                  style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid #ddd' }}
+                >
+                  <option value="mentions_legales">Mentions légales</option>
+                  <option value="cgu">Conditions généales d'utilisation (CGU)</option>
+                  <option value="cgv">Conditions généales de vente (CGV)</option>
+                  <option value="rgpd">Politique de confidentialité (RGPD)</option>
+                  <option value="cookies">Politique de cookies</option>
+                  <option value="autre">Autre</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                  Fichier (PDF) *
+                </label>
+                <input
+                  type="file"
+                  accept=".pdf"
+                  onChange={(e) => setLegalDocFile(e.target.files?.[0] || null)}
+                  required
+                  style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid #ddd' }}
+                />
+              </div>
+            </div>
+            <button
+              type="submit"
+              disabled={uploadingLegalDoc || !legalDocFile}
+              style={{
+                marginTop: '1rem',
+                padding: '0.6rem 1.2rem',
+                background: uploadingLegalDoc ? '#ccc' : '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: uploadingLegalDoc ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {uploadingLegalDoc ? 'Téléchargement...' : '📤 Télécharger le document'}
+            </button>
+          </form>
+
+          <div style={{ marginTop: '2rem' }}>
+            <h3 style={{ marginBottom: '1rem' }}>Documents existants</h3>
+            {legalDocuments.length === 0 ? (
+              <p style={{ color: '#666', fontStyle: 'italic' }}>Aucun document juridique téléchargé.</p>
+            ) : (
+              <div style={{ display: 'grid', gap: '0.75rem' }}>
+                {legalDocuments.map((doc) => (
+                  <div
+                    key={doc.id}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '1rem',
+                      background: '#fff',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                    }}
+                  >
+                    <div>
+                      <strong style={{ display: 'block', marginBottom: '0.25rem' }}>
+                        {doc.type === 'mentions_legales' && '📄 Mentions légales'}
+                        {doc.type === 'cgu' && '📋 Conditions généales d\'utilisation'}
+                        {doc.type === 'cgv' && '💰 Conditions générales de vente'}
+                        {doc.type === 'rgpd' && '🔒 Politique de confidentialité (RGPD)'}
+                        {doc.type === 'cookies' && '🍪 Politique de cookies'}
+                        {doc.type === 'autre' && '📎 Autre document'}
+                      </strong>
+                      <span style={{ fontSize: '0.85rem', color: '#666' }}>
+                        {doc.file_name} · Mis à jour le {new Date(doc.updated_at).toLocaleDateString('fr-FR')}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button
+                        onClick={() => handleDownloadLegalDocument(doc.file_path, doc.file_name)}
+                        style={{
+                          padding: '0.4rem 0.8rem',
+                          background: '#28a745',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        ⬇️ Télécharger
+                      </button>
+                      <button
+                        onClick={() => handleDeleteLegalDocument(doc.id, doc.file_path)}
+                        style={{
+                          padding: '0.4rem 0.8rem',
+                          background: '#dc3545',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        🗑️ Supprimer
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </section>
       )}
