@@ -42,12 +42,9 @@ export default function PublishedDocumentLinks({ categoryKey, allVisible = false
     <h3>{title}</h3>
     {documents.length > 0 ? <ul>
       {documents.map((document) => <li key={document.id}>
-        <div>
+        <a href={document.url} target="_blank" rel="noopener noreferrer">
           <strong>{document.title}</strong>
           <span>{allVisible ? `${document.category_name} · ` : ''}{document.file_name} · v{document.version_number}</span>
-        </div>
-        <a href={document.url} target="_blank" rel="noopener noreferrer">
-          {language === 'fr' ? 'Ouvrir' : 'Open'}
         </a>
       </li>)}
     </ul> : <p role="status">

@@ -35,7 +35,7 @@ describe('PublishedDocumentLinks', () => {
     resolveMock.mockResolvedValue([documentFixture])
     render(<PublishedDocumentLinks categoryKey="authorizations-mandates" title="Documents utiles" />)
 
-    const link = await screen.findByRole('link', { name: 'Ouvrir' })
+    const link = await screen.findByRole('link', { name: /Autorisation de visite/ })
     expect(resolveMock).toHaveBeenCalledWith({ category: 'authorizations-mandates' })
     expect(screen.getByText('Autorisation de visite')).toBeInTheDocument()
     expect(screen.getByText('autorisation.pdf · v2')).toBeInTheDocument()
@@ -55,7 +55,7 @@ describe('PublishedDocumentLinks', () => {
     resolveMock.mockResolvedValue([documentFixture])
     render(<PublishedDocumentLinks allVisible publicOnly title="Documents publiés" />)
 
-    expect(await screen.findByRole('link', { name: 'Ouvrir' })).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: /Autorisation de visite/ })).toBeInTheDocument()
     expect(resolveMock).toHaveBeenCalledWith({ all: true, audience: 'public' })
     expect(screen.getByText('Autorisations et mandats · autorisation.pdf · v2')).toBeInTheDocument()
   })

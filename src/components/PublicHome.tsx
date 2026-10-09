@@ -210,9 +210,11 @@ export default function PublicHome({ onPartnerSignup, onLogin }: { onPartnerSign
       <div><strong>{partner.public_name || 'Partenaire Scope-Verify'}</strong><p>{partner.public_summary}</p><small>{[partner.public_domains.join(' · '), partner.public_country, partner.public_area].filter(Boolean).join(' · ')}</small></div>
       {partner.public_website && <a href={partner.public_website} target="_blank" rel="noreferrer" aria-label={`Site de ${partner.public_name}`}>↗</a>}
     </article>)}</div></section>}
-    <section className="sv-published-documents">
+    <footer className="sv-footer">
+      <a className="sv-brand-link" href="#home" aria-label="Scope-Verify accueil"><Brand /></a>
+      <p>{t.footer}</p>
+      <button onClick={onPartnerSignup}>{t.partnerLink}</button>
       <PublishedDocumentLinks allVisible publicOnly title={language === 'fr' ? 'Documents publiés' : 'Published documents'} language={language} />
-    </section>
-    <footer className="sv-footer"><a className="sv-brand-link" href="#home" aria-label="Scope-Verify accueil"><Brand /></a><p>{t.footer}</p><button onClick={onPartnerSignup}>{t.partnerLink}</button></footer>
+    </footer>
   </main>
 }
