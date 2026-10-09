@@ -214,7 +214,7 @@ export default function PublicHome({ onPartnerSignup, onLogin }: { onPartnerSign
       <a className="sv-brand-link" href="#home" aria-label="Scope-Verify accueil"><Brand /></a>
       <p>{t.footer}</p>
       <button onClick={onPartnerSignup}>{t.partnerLink}</button>
-      <PublishedDocumentLinks allVisible publicOnly title={language === 'fr' ? 'Documents publiés' : 'Published documents'} language={language} />
+      <PublishedDocumentLinks allVisible publicOnly showHeading={false} showMetadata={false} title="Documents juridiques" language={language} />
     </footer>
   </main>
 }

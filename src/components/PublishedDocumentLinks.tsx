@@ -7,11 +7,13 @@ interface PublishedDocumentLinksProps {
   categoryKey?: string
   allVisible?: boolean
   publicOnly?: boolean
+  showHeading?: boolean
+  showMetadata?: boolean
   title: string
   language?: 'fr' | 'en'
 }
 
-export default function PublishedDocumentLinks({ categoryKey, allVisible = false, publicOnly = false, title, language = 'fr' }: PublishedDocumentLinksProps) {
+export default function PublishedDocumentLinks({ categoryKey, allVisible = false, publicOnly = false, showHeading = true, showMetadata = true, title, language = 'fr' }: PublishedDocumentLinksProps) {
   const [documents, setDocuments] = useState<ResolvedDocumentLibraryDocument[]>([])
   const [unavailable, setUnavailable] = useState(false)
 
@@ -39,12 +41,12 @@ export default function PublishedDocumentLinks({ categoryKey, allVisible = false
   if (documents.length === 0 && !unavailable) return null
 
   return <aside className="published-document-links" aria-label={title}>
-    <h3>{title}</h3>
+    {showHeading && <h3>{title}</h3>}
     {documents.length > 0 ? <ul>
       {documents.map((document) => <li key={document.id}>
         <a href={document.url} target="_blank" rel="noopener noreferrer">
           <strong>{document.title}</strong>
-          <span>{allVisible ? `${document.category_name} · ` : ''}{document.file_name} · v{document.version_number}</span>
+          {showMetadata && <span>{allVisible ? `${document.category_name} · ` : ''}{document.file_name} · v{document.version_number}</span>}
         </a>
       </li>)}
     </ul> : <p role="status">

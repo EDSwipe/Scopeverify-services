@@ -53,10 +53,11 @@ describe('PublishedDocumentLinks', () => {
 
   it('loads all public documents across admin-defined categories', async () => {
     resolveMock.mockResolvedValue([documentFixture])
-    render(<PublishedDocumentLinks allVisible publicOnly title="Documents publiés" />)
+    render(<PublishedDocumentLinks allVisible publicOnly showHeading={false} showMetadata={false} title="Documents juridiques" />)
 
     expect(await screen.findByRole('link', { name: /Autorisation de visite/ })).toBeInTheDocument()
     expect(resolveMock).toHaveBeenCalledWith({ all: true, audience: 'public' })
-    expect(screen.getByText('Autorisations et mandats · autorisation.pdf · v2')).toBeInTheDocument()
+    expect(screen.queryByText('Autorisations et mandats · autorisation.pdf · v2')).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Documents juridiques' })).not.toBeInTheDocument()
   })
 })
