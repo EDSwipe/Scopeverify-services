@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { validateDocumentLibraryFile } from './document-library'
+import { getLegalDocumentType, validateDocumentLibraryFile } from './document-library'
+
+describe('getLegalDocumentType', () => {
+  it('recognizes legal document types imported from the legacy library', () => {
+    expect(getLegalDocumentType('legal-cgu-8b11f2d2-1234')).toBe('cgu')
+    expect(getLegalDocumentType('legal-mentions_legales-8b11f2d2')).toBe('mentions_legales')
+    expect(getLegalDocumentType('mission-form-template')).toBeNull()
+  })
+})
 
 describe('validateDocumentLibraryFile', () => {
   it('accepts supported extensions with matching MIME types and size', () => {

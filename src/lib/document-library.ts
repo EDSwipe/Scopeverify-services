@@ -17,6 +17,23 @@ export type DocumentLibraryMimeType = typeof DOCUMENT_LIBRARY_MIME_TYPES[keyof t
 export type DocumentLibraryStatus = 'draft' | 'published' | 'archived'
 export type DocumentLibraryKind = 'downloadable' | 'generated_template' | 'digital_form' | 'reference'
 export type DocumentLibraryAudience = 'public' | 'authenticated' | 'admin'
+export type LegalDocumentType = 'mentions_legales' | 'cgu' | 'cgv' | 'rgpd' | 'cookies' | 'autre'
+
+export const LEGAL_DOCUMENT_TYPE_LABELS: Record<LegalDocumentType, string> = {
+  mentions_legales: 'Mentions légales',
+  cgu: 'Conditions générales d’utilisation (CGU)',
+  cgv: 'Conditions générales de vente (CGV)',
+  rgpd: 'Politique de confidentialité (RGPD)',
+  cookies: 'Politique de cookies',
+  autre: 'Autre document juridique',
+}
+
+const legalDocumentTypes = Object.keys(LEGAL_DOCUMENT_TYPE_LABELS) as LegalDocumentType[]
+
+export function getLegalDocumentType(documentKey: string): LegalDocumentType | null {
+  const prefix = legalDocumentTypes.find((type) => documentKey.startsWith(`legal-${type}-`))
+  return prefix || null
+}
 
 export interface DocumentLibraryCategory {
   id: string
