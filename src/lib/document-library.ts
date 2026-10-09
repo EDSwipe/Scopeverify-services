@@ -30,9 +30,15 @@ export const LEGAL_DOCUMENT_TYPE_LABELS: Record<LegalDocumentType, string> = {
 
 const legalDocumentTypes = Object.keys(LEGAL_DOCUMENT_TYPE_LABELS) as LegalDocumentType[]
 
+export function createLegalDocumentKey(type: LegalDocumentType, suffix: string): string {
+  return `legal-${type.replace(/_/g, '-')}-${suffix}`
+}
+
 export function getLegalDocumentType(documentKey: string): LegalDocumentType | null {
-  const prefix = legalDocumentTypes.find((type) => documentKey.startsWith(`legal-${type}-`))
-  return prefix || null
+  return legalDocumentTypes.find((type) => {
+    const normalizedType = type.replace(/_/g, '-')
+    return documentKey.startsWith(`legal-${type}-`) || documentKey.startsWith(`legal-${normalizedType}-`)
+  }) || null
 }
 
 export interface DocumentLibraryCategory {

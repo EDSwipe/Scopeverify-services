@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { supabase } from '../../supabase'
 import { getErrorMessage } from '../../lib/errors'
 import {
+  createLegalDocumentKey,
   getLegalDocumentType,
   LEGAL_DOCUMENT_TYPE_LABELS,
   validateDocumentLibraryFile,
@@ -224,11 +225,11 @@ export default function DocumentLibrary({ adminId }: DocumentLibraryProps) {
     event.preventDefault()
     if (!supabase) return
     const title = draft.title.trim()
-    const keySuffix = slugify(draft.key.replace(/^legal-(mentions_legales|cgu|cgv|rgpd|cookies|autre)-/, '')) || slugify(title)
+    const keySuffix = slugify(draft.key.replace(/^legal-(mentions[_-]legales|cgu|cgv|rgpd|cookies|autre)-/, '')) || slugify(title)
     const key = editingDocumentId
       ? draft.key
       : draft.legal_type
-        ? `legal-${draft.legal_type}-${keySuffix}`
+        ? createLegalDocumentKey(draft.legal_type, keySuffix)
         : slugify(draft.key || title)
     if (!key) {
       setError('La clé stable du document ne peut pas être vide.')
@@ -508,7 +509,7 @@ export default function DocumentLibrary({ adminId }: DocumentLibraryProps) {
                 key: editingDocumentId
                   ? current.key
                   : current.legal_type
-                    ? `legal-${current.legal_type}-${slugify(title)}`
+                    ? createLegalDocumentKey(current.legal_type, slugify(title))
                     : slugify(title),
               }))
             }} />
@@ -516,8 +517,8 @@ export default function DocumentLibrary({ adminId }: DocumentLibraryProps) {
           <label>
             Clé stable
             <input required pattern="[a-z0-9]+(-[a-z0-9]+)*" value={draft.key} disabled={Boolean(editingDocumentId)} onChange={(event) => {
-              const suffix = slugify(event.target.value.replace(/^legal-(mentions_legales|cgu|cgv|rgpd|cookies|autre)-/, ''))
-              setDraft((current) => ({ ...current, key: current.legal_type ? `legal-${current.legal_type}-${suffix}` : suffix }))
+              const suffix = slugify(event.target.value.replace(/^legal-(mentions[_-]legales|cgu|cgv|rgpd|cookies|autre)-/, ''))
+              setDraft((current) => ({ ...current, key: current.legal_type ? createLegalDocumentKey(current.legal_type, suffix) : suffix }))
             }} />
           </label>
           <label>
@@ -543,7 +544,7 @@ export default function DocumentLibrary({ adminId }: DocumentLibraryProps) {
               setDraft((current) => ({
                 ...current,
                 legal_type: legalType,
-                key: legalType ? `legal-${legalType}-${slugify(current.title)}` : slugify(current.title),
+                key: legalType ? createLegalDocumentKey(legalType, slugify(current.title)) : slugify(current.title),
               }))
             }}>
               <option value="">Document administratif</option>
