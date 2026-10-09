@@ -129,6 +129,7 @@ insert into public.document_library_categories(key, name, sort_order) values
   ('operational-mission-documents', 'Documents opérationnels de mission', 30),
   ('reports-deliverables', 'Rapports et livrables', 40),
   ('client-administrative-documents', 'Documents clients et administratifs', 50),
+  ('legal-documents', 'Documents juridiques', 55),
   ('partner-documents', 'Documents partenaires', 60)
 on conflict (key) do nothing;
 

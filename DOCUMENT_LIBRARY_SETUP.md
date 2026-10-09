@@ -13,7 +13,7 @@ Le bucket créé par migration, `document-library`, est privé, accepte PDF, DOC
 
 Depuis l’onglet **Bibliothèque de documents**, créer le document avec sa clé stable et ses métadonnées, ajouter une version, puis publier explicitement la version voulue. Un remplacement ne change pas la version active avant publication. L’archivage retire le document des résolutions futures tout en conservant les fichiers, les usages et l’historique.
 
-Les six catégories initiales sont des emplacements vides. Elles peuvent être complétées ou désactivées dans l’interface; l’administrateur peut en créer de nouvelles. Les documents juridiques historiques, s’ils existent, sont importés comme version 1 publiée dans « Documents clients et administratifs », avec leur chemin de stockage d’origine.
+Les catégories initiales sont des emplacements vides. Elles peuvent être complétées ou désactivées dans l’interface; l’administrateur peut en créer de nouvelles. La migration `20261010_document_library_legal_category.sql` ajoute la catégorie « Documents juridiques » et y reclasse les versions juridiques historiques, sans déplacer ni supprimer leurs fichiers.
 
 ## Intégration ultérieure
 

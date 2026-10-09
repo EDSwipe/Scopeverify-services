@@ -25,7 +25,7 @@
 .document-library-category-list .is-inactive { color: #858987; text-decoration: line-through; }
 .document-library-category-form { align-self: start; display: grid; gap: 0.5rem; }
 .document-library-category-form > div { display: flex; align-items: stretch; gap: 0.5rem; }
-.document-library-filters { display: grid; grid-template-columns: minmax(200px, 1.5fr) repeat(4, minmax(135px, 1fr)); gap: 0.75rem; padding: 1.25rem 0; }
+.document-library-filters { display: grid; grid-template-columns: minmax(200px, 1.5fr) repeat(3, minmax(145px, 1fr)); gap: 0.75rem; padding: 1.25rem 0; }
 .document-library-legal-summary { margin: 0; padding: 0.7rem 0; color: #65696a; font-size: 0.82rem; }
 .document-library-list { display: grid; }
 .document-library-item { border-top: 1px solid #d9d5cb; }

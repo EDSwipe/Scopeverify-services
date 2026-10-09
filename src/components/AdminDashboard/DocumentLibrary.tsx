@@ -106,7 +106,6 @@ export default function DocumentLibrary({ adminId }: DocumentLibraryProps) {
   const [categoryName, setCategoryName] = useState('')
   const [filterCategory, setFilterCategory] = useState('')
   const [filterKind, setFilterKind] = useState('')
-  const [filterLegalType, setFilterLegalType] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
   const [search, setSearch] = useState('')
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -460,17 +459,16 @@ export default function DocumentLibrary({ adminId }: DocumentLibraryProps) {
 
   const activeCategories = categories.filter((category) => category.is_active)
   const selectedCategory = categories.find((category) => category.id === draft.category_id)
-  const isLegalCategory = selectedCategory?.key === 'client-administrative-documents'
+  const isLegalCategory = selectedCategory?.key === 'legal-documents'
   const selectableCategories = activeCategories.some((category) => category.id === draft.category_id)
     ? activeCategories
     : [...activeCategories, ...categories.filter((category) => category.id === draft.category_id)]
   const filteredDocuments = documents.filter((document) => {
     const matchesCategory = !filterCategory || document.category_id === filterCategory
     const matchesKind = !filterKind || document.kind === filterKind
-    const matchesLegalType = !filterLegalType || getLegalDocumentType(document.key) === filterLegalType
     const matchesStatus = !filterStatus || document.status === filterStatus
     const searchValue = `${document.title} ${document.key} ${document.description} ${document.category?.name || ''}`.toLowerCase()
-    return matchesCategory && matchesKind && matchesLegalType && matchesStatus && searchValue.includes(search.trim().toLowerCase())
+    return matchesCategory && matchesKind && matchesStatus && searchValue.includes(search.trim().toLowerCase())
   })
   const legalDocumentCount = documents.filter((document) => getLegalDocumentType(document.key)).length
 
@@ -526,7 +524,7 @@ export default function DocumentLibrary({ adminId }: DocumentLibraryProps) {
             Catégorie
             <select required value={draft.category_id} onChange={(event) => {
               const category = categories.find((item) => item.id === event.target.value)
-              const legalCategory = category?.key === 'client-administrative-documents'
+              const legalCategory = category?.key === 'legal-documents'
               setDraft((current) => ({
                 ...current,
                 category_id: event.target.value,
@@ -539,14 +537,13 @@ export default function DocumentLibrary({ adminId }: DocumentLibraryProps) {
             </select>
           </label>
           {isLegalCategory && <label>
-            Type juridique
+            Type de document juridique
             <select value={draft.legal_type} disabled={Boolean(editingDocumentId)} onChange={(event) => {
               const legalType = event.target.value as LegalDocumentType | ''
               setDraft((current) => ({
                 ...current,
                 legal_type: legalType,
                 key: legalType ? `legal-${legalType}-${slugify(current.title)}` : slugify(current.title),
-                audience: legalType ? 'public' : current.audience,
               }))
             }}>
               <option value="">Document administratif</option>
@@ -611,15 +608,12 @@ export default function DocumentLibrary({ adminId }: DocumentLibraryProps) {
         <label>Type<select value={filterKind} onChange={(event) => setFilterKind(event.target.value)}>
           <option value="">Tous</option>{Object.entries(kindLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select></label>
-        <label>Type juridique<select value={filterLegalType} onChange={(event) => setFilterLegalType(event.target.value)}>
-          <option value="">Tous les documents</option>{Object.entries(LEGAL_DOCUMENT_TYPE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-        </select></label>
         <label>Statut<select value={filterStatus} onChange={(event) => setFilterStatus(event.target.value)}>
           <option value="">Tous</option>{Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select></label>
       </div>
 
-      <p className="document-library-legal-summary">Documents juridiques et politiques : {legalDocumentCount}</p>
+      <p className="document-library-legal-summary">Documents juridiques classés dans leur catégorie : {legalDocumentCount}</p>
 
       {loading ? <p className="document-library-empty">Chargement de la bibliothèque…</p> : filteredDocuments.length === 0 ? (
         <p className="document-library-empty">Aucun document ne correspond aux filtres.</p>
