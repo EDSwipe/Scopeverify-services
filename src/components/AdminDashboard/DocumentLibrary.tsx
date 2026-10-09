@@ -545,6 +545,7 @@ export default function DocumentLibrary({ adminId }: DocumentLibraryProps) {
                 ...current,
                 legal_type: legalType,
                 key: legalType ? createLegalDocumentKey(legalType, slugify(current.title)) : slugify(current.title),
+                audience: legalType ? 'public' : current.audience,
               }))
             }}>
               <option value="">Document administratif</option>

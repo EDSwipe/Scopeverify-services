@@ -4,19 +4,28 @@ import type { ResolvedDocumentLibraryDocument } from '../lib/document-library'
 import './PublishedDocumentLinks.css'
 
 interface PublishedDocumentLinksProps {
-  categoryKey: string
+  categoryKey?: string
+  allVisible?: boolean
+  publicOnly?: boolean
   title: string
   language?: 'fr' | 'en'
 }
 
-export default function PublishedDocumentLinks({ categoryKey, title, language = 'fr' }: PublishedDocumentLinksProps) {
+export default function PublishedDocumentLinks({ categoryKey, allVisible = false, publicOnly = false, title, language = 'fr' }: PublishedDocumentLinksProps) {
   const [documents, setDocuments] = useState<ResolvedDocumentLibraryDocument[]>([])
   const [unavailable, setUnavailable] = useState(false)
 
   useEffect(() => {
     let active = true
     queueMicrotask(() => {
-      void resolvePublishedDocument({ category: categoryKey })
+      const lookup = allVisible
+        ? { all: true as const, ...(publicOnly ? { audience: 'public' as const } : {}) }
+        : categoryKey ? { category: categoryKey } : null
+      if (!lookup) {
+        setUnavailable(true)
+        return
+      }
+      void resolvePublishedDocument(lookup)
         .then((result) => {
           if (active) setDocuments(Array.isArray(result) ? result : [result])
         })
@@ -25,7 +34,7 @@ export default function PublishedDocumentLinks({ categoryKey, title, language = 
         })
     })
     return () => { active = false }
-  }, [categoryKey])
+  }, [allVisible, categoryKey, publicOnly])
 
   if (documents.length === 0 && !unavailable) return null
 
@@ -35,7 +44,7 @@ export default function PublishedDocumentLinks({ categoryKey, title, language = 
       {documents.map((document) => <li key={document.id}>
         <div>
           <strong>{document.title}</strong>
-          <span>{document.file_name} · v{document.version_number}</span>
+          <span>{allVisible ? `${document.category_name} · ` : ''}{document.file_name} · v{document.version_number}</span>
         </div>
         <a href={document.url} target="_blank" rel="noopener noreferrer">
           {language === 'fr' ? 'Ouvrir' : 'Open'}

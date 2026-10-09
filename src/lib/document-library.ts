@@ -97,6 +97,8 @@ export interface ResolvedDocumentLibraryDocument {
   id: string
   key: string
   category_id: string
+  category_key: string
+  category_name: string
   title: string
   description: string
   kind: DocumentLibraryKind
@@ -110,7 +112,7 @@ export interface ResolvedDocumentLibraryDocument {
 }
 
 export async function resolvePublishedDocument(
-  lookup: { key: string } | { category: string },
+  lookup: { key: string } | { category: string } | { all: true; audience?: 'public' },
 ): Promise<ResolvedDocumentLibraryDocument | ResolvedDocumentLibraryDocument[]> {
   const params = new URLSearchParams(lookup)
   const { data: sessionData } = supabase ? await supabase.auth.getSession() : { data: { session: null } }

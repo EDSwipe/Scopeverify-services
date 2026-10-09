@@ -238,7 +238,7 @@ export default function MissionForm({ clientId, onSave, onCancel, initialMission
         />
       </label>
 
-      <PublishedDocumentLinks categoryKey="mission-requests" title="Documents utiles pour votre demande" />
+      <PublishedDocumentLinks allVisible title="Documents publiés accessibles à votre compte" />
 
       <label>
         Documents utiles

@@ -14,6 +14,8 @@ const documentFixture: ResolvedDocumentLibraryDocument = {
   id: 'document-id',
   key: 'authorization-template',
   category_id: 'category-id',
+  category_key: 'authorizations-mandates',
+  category_name: 'Autorisations et mandats',
   title: 'Autorisation de visite',
   description: '',
   kind: 'downloadable',
@@ -47,5 +49,14 @@ describe('PublishedDocumentLinks', () => {
 
     await waitFor(() => expect(resolveMock).toHaveBeenCalled())
     expect(screen.queryByRole('complementary')).not.toBeInTheDocument()
+  })
+
+  it('loads all public documents across admin-defined categories', async () => {
+    resolveMock.mockResolvedValue([documentFixture])
+    render(<PublishedDocumentLinks allVisible publicOnly title="Documents publiés" />)
+
+    expect(await screen.findByRole('link', { name: 'Ouvrir' })).toBeInTheDocument()
+    expect(resolveMock).toHaveBeenCalledWith({ all: true, audience: 'public' })
+    expect(screen.getByText('Autorisations et mandats · autorisation.pdf · v2')).toBeInTheDocument()
   })
 })

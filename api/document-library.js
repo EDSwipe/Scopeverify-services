@@ -56,7 +56,7 @@ async function getCaller(request, response, requireAdmin = false) {
     return null
   }
 
-  const isAdmin = caller.email?.toLowerCase() === ADMIN_EMAIL
+  let isAdmin = caller.email?.toLowerCase() === ADMIN_EMAIL
     || (profile?.role === 'admin' && profile.is_active === true)
   const isActiveUser = isAdmin || profile?.is_active === true
   if (!isActiveUser) {
@@ -72,6 +72,11 @@ async function getCaller(request, response, requireAdmin = false) {
     if (!assurance || (assurance.nextLevel === 'aal2' && assurance.currentLevel !== 'aal2')) {
       response.status(403).json({ error: 'Terminez la vérification MFA avant de continuer' })
       return null
+    }
+  } else if (isAdmin) {
+    const assurance = await getAuthenticatorAssuranceLevel(request)
+    if (!assurance || (assurance.nextLevel === 'aal2' && assurance.currentLevel !== 'aal2')) {
+      isAdmin = false
     }
   }
   return { serviceClient, user: caller, isAdmin }
@@ -135,8 +140,10 @@ async function readRawBody(request) {
 async function handleResolve(request, response, caller) {
   const key = typeof request.query?.key === 'string' ? request.query.key.trim() : ''
   const categoryKey = typeof request.query?.category === 'string' ? request.query.category.trim() : ''
-  if ((!key && !categoryKey) || (key && categoryKey)) {
-    return response.status(400).json({ error: 'Fournissez une clé de document ou une catégorie' })
+  const allRequested = request.query?.all === 'true'
+  const publicOnly = request.query?.audience === 'public'
+  if ((key && categoryKey) || (allRequested && (key || categoryKey)) || (!key && !categoryKey && !allRequested)) {
+    return response.status(400).json({ error: 'Fournissez une clé, une catégorie ou la liste des documents publiés' })
   }
 
   let categoryId
@@ -155,7 +162,8 @@ async function handleResolve(request, response, caller) {
     .from('document_library_documents')
     .select('id,key,category_id,title,description,kind,audience,status,published_version_id')
     .eq('status', 'published')
-  query = key ? query.eq('key', key) : query.eq('category_id', categoryId)
+  if (key) query = query.eq('key', key)
+  if (categoryKey) query = query.eq('category_id', categoryId)
   const { data: documents, error: documentsError } = await query.order('title')
   if (documentsError) throw documentsError
   if (!documents?.length) return key
@@ -165,12 +173,13 @@ async function handleResolve(request, response, caller) {
   const categoryIds = [...new Set(documents.map((document) => document.category_id))]
   const { data: categories, error: categoryError } = await caller.serviceClient
     .from('document_library_categories')
-    .select('id,is_active')
+    .select('id,key,name,is_active')
     .in('id', categoryIds)
   if (categoryError) throw categoryError
   const activeCategoryIds = new Set((categories || []).filter((category) => category.is_active).map((category) => category.id))
 
   const visibleDocuments = documents.filter((document) => activeCategoryIds.has(document.category_id) && (() => {
+    if (publicOnly) return document.audience === 'public'
     if (document.audience === 'public') return true
     if (!caller.user) return false
     if (document.audience === 'admin') return caller.isAdmin
@@ -186,6 +195,7 @@ async function handleResolve(request, response, caller) {
     .in('id', versionIds)
   if (versionsError) throw versionsError
   const byVersionId = new Map((versions || []).map((version) => [version.id, version]))
+  const categoryById = new Map((categories || []).map((category) => [category.id, category]))
   const result = []
   for (const document of visibleDocuments) {
     const version = byVersionId.get(document.published_version_id)
@@ -198,6 +208,8 @@ async function handleResolve(request, response, caller) {
       id: document.id,
       key: document.key,
       category_id: document.category_id,
+      category_key: categoryById.get(document.category_id)?.key || '',
+      category_name: categoryById.get(document.category_id)?.name || '',
       title: document.title,
       description: document.description,
       kind: document.kind,

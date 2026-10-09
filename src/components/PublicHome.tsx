@@ -201,7 +201,7 @@ export default function PublicHome({ onPartnerSignup, onLogin }: { onPartnerSign
       <label>{t.situation}<select name="situation" defaultValue=""><option value="">{language === 'fr' ? 'Choisir ou préciser dans le message' : 'Choose or describe below'}</option>{needs.map((need) => <option key={need}>{need}</option>)}</select></label>
       <label>{t.message}<textarea name="message" required minLength={10} rows={3} placeholder={t.placeholder} /></label>
       <div className="sv-form-row"><label>{t.deadline}<input name="deadline" placeholder={language === 'fr' ? 'Ex. avant le 15 novembre' : 'e.g. by November 15'} /></label><label>{t.budget}<input name="budget" placeholder="EUR / USD" /></label></div>
-      <PublishedDocumentLinks categoryKey="mission-requests" title={t.requestDocuments} language={language} />
+      <PublishedDocumentLinks allVisible publicOnly title="Documents publiés" language={language} />
       {error && <p className="sv-message error" role="alert">{error}</p>}{sent && <p className="sv-message" role="status">{t.success}</p>}
       <button className="sv-button sv-submit" type="submit">{requestButton} <span aria-hidden="true">↗</span></button>
       <p className="sv-partner-link"><button type="button" onClick={onPartnerSignup}>{t.partnerLink}</button></p>
