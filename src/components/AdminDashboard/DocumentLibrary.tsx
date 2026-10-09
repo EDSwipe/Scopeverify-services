@@ -622,6 +622,10 @@ export default function DocumentLibrary({ adminId }: DocumentLibraryProps) {
       ) : <div className="document-library-list">
         {filteredDocuments.map((document) => {
           const publishedVersion = document.published_version
+          const latestVersion = document.versions?.[0]
+          const needsPublication = Boolean(latestVersion && (
+            document.status !== 'published' || latestVersion.id !== document.published_version_id
+          ))
           const documentEvents = events.filter((event) => event.document_id === document.id)
           return <article className="document-library-item" key={document.id}>
             <div className="document-library-item-main">
@@ -639,6 +643,15 @@ export default function DocumentLibrary({ adminId }: DocumentLibraryProps) {
               </div>
               <div className="document-library-item-actions">
                 <button type="button" onClick={() => startEdit(document)}>Modifier / remplacer</button>
+                {latestVersion && needsPublication && <button
+                  type="button"
+                  className="is-publish"
+                  disabled={busyAction === `publish-${document.id}`}
+                  onClick={() => void handlePublish(document, latestVersion)}
+                >
+                  {busyAction === `publish-${document.id}` ? 'Publication…' : `Publier v${latestVersion.version_number}`}
+                </button>}
+                {!latestVersion && <button type="button" className="is-publish" onClick={() => startEdit(document)}>Ajouter un fichier</button>}
                 {publishedVersion && <button type="button" onClick={() => void handleFileAction(publishedVersion, false)}>Prévisualiser</button>}
                 {publishedVersion && <button type="button" onClick={() => void handleFileAction(publishedVersion, true)}>Télécharger</button>}
                 {document.status !== 'archived' && <button type="button" className="is-danger" onClick={() => void handleArchive(document)}>Archiver</button>}

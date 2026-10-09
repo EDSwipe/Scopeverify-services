@@ -45,6 +45,7 @@
 .document-library-legal-type { display: inline-flex; align-items: center; min-height: 23px; padding: 0.15rem 0.45rem; border: 1px solid #6e8b9a; color: #385765; font-size: 0.73rem; font-weight: 600; }
 .document-library-item-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 0.4rem; }
 .document-library-item-actions button { min-height: 34px; padding: 0.35rem 0.55rem; background: #fff; color: #343738; font-size: 0.78rem; }
+.document-library-item-actions button.is-publish { border-color: #285c3a; background: #285c3a; color: #fff; }
 .document-library-item-actions button.is-danger { border-color: #9d4c4c; color: #873b3b; }
 .document-library-details { display: grid; gap: 1.25rem; padding: 0.25rem 0 1.25rem; }
 .document-library-details section { padding-top: 0.8rem; border-top: 1px solid #ebe8e0; }
