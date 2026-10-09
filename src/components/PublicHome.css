@@ -114,6 +114,7 @@
 .sv-partner-link { margin: 5px 0 0; }
 .sv-footer { display: flex; align-items: center; justify-content: space-between; gap: 22px; padding: 24px 5vw; border-top: 1px solid var(--sv-line); }
 .sv-footer p { margin: 0; color: var(--sv-muted); font-size: 12px; }
+.sv-published-documents { padding: 0 5vw; }
 @media (max-width: 900px) {
   .sv-header { flex-wrap: wrap; }
   .sv-header nav { order: 3; width: 100%; justify-content: flex-start; overflow-x: auto; padding: 5px 0; }
@@ -147,6 +148,7 @@
   .sv-partner-item { width: min(340px, 90vw); grid-template-columns: 58px minmax(130px, 1fr) 16px; gap: 12px; padding: 14px; }
   .sv-partner-item img { width: 54px; height: 48px; }
   .sv-footer { align-items: flex-start; flex-direction: column; padding: 24px; }
+  .sv-published-documents { padding: 0 24px; }
 }
 @media (max-width: 620px) {
   .sv-logo-heading { padding: 0 24px; }

@@ -45,7 +45,7 @@ const translations = {
     formTitle: 'Parlons de votre besoin',
     formCopy: 'Décrivez la question à résoudre. Nous revenons vers vous pour qualifier le périmètre et la compétence nécessaire.',
     name: 'Nom et prénom', company: 'Entreprise', email: 'Email professionnel', phone: 'Téléphone', situation: 'Que souhaitez-vous vérifier ?', message: 'Questions et éléments à vérifier', deadline: 'Délai souhaité', budget: 'Budget indicatif', send: 'Envoyer la demande',
-    placeholder: 'Décrivez votre situation et les questions auxquelles vous avez besoin d’une réponse.', requestDocuments: 'Documents utiles pour votre demande', success: 'Demande envoyée. Scope-Verify reviendra vers vous pour qualifier votre besoin.', partnerLink: 'Candidater au réseau partenaire', login: 'Espace client', footer: 'Scope-Verify coordonne votre demande et organise la réponse adaptée.',
+    placeholder: 'Décrivez votre situation et les questions auxquelles vous avez besoin d’une réponse.', success: 'Demande envoyée. Scope-Verify reviendra vers vous pour qualifier votre besoin.', partnerLink: 'Candidater au réseau partenaire', login: 'Espace client', footer: 'Scope-Verify coordonne votre demande et organise la réponse adaptée.',
   },
   en: {
     nav: ['Who we serve', 'What we do', 'Our network', 'Coverage'],
@@ -69,7 +69,7 @@ const translations = {
     formTitle: 'Tell us what you need',
     formCopy: 'Describe the question to resolve. We will contact you to qualify the scope and required expertise.',
     name: 'Full name', company: 'Company', email: 'Business email', phone: 'Phone', situation: 'What do you need verified?', message: 'Questions and items to verify', deadline: 'Preferred timeframe', budget: 'Indicative budget', send: 'Send request',
-    placeholder: 'Describe the situation and the questions you need answered.', requestDocuments: 'Documents useful for your request', success: 'Request sent. Scope-Verify will contact you to qualify your need.', partnerLink: 'Apply to the partner network', login: 'Client area', footer: 'Scope-Verify coordinates your request and organizes the appropriate response.',
+    placeholder: 'Describe the situation and the questions you need answered.', success: 'Request sent. Scope-Verify will contact you to qualify your need.', partnerLink: 'Apply to the partner network', login: 'Client area', footer: 'Scope-Verify coordinates your request and organizes the appropriate response.',
   },
 } satisfies Record<Language, Record<string, string | string[]>>
 
@@ -201,7 +201,6 @@ export default function PublicHome({ onPartnerSignup, onLogin }: { onPartnerSign
       <label>{t.situation}<select name="situation" defaultValue=""><option value="">{language === 'fr' ? 'Choisir ou préciser dans le message' : 'Choose or describe below'}</option>{needs.map((need) => <option key={need}>{need}</option>)}</select></label>
       <label>{t.message}<textarea name="message" required minLength={10} rows={3} placeholder={t.placeholder} /></label>
       <div className="sv-form-row"><label>{t.deadline}<input name="deadline" placeholder={language === 'fr' ? 'Ex. avant le 15 novembre' : 'e.g. by November 15'} /></label><label>{t.budget}<input name="budget" placeholder="EUR / USD" /></label></div>
-      <PublishedDocumentLinks allVisible publicOnly title="Documents publiés" language={language} />
       {error && <p className="sv-message error" role="alert">{error}</p>}{sent && <p className="sv-message" role="status">{t.success}</p>}
       <button className="sv-button sv-submit" type="submit">{requestButton} <span aria-hidden="true">↗</span></button>
       <p className="sv-partner-link"><button type="button" onClick={onPartnerSignup}>{t.partnerLink}</button></p>
@@ -211,6 +210,9 @@ export default function PublicHome({ onPartnerSignup, onLogin }: { onPartnerSign
       <div><strong>{partner.public_name || 'Partenaire Scope-Verify'}</strong><p>{partner.public_summary}</p><small>{[partner.public_domains.join(' · '), partner.public_country, partner.public_area].filter(Boolean).join(' · ')}</small></div>
       {partner.public_website && <a href={partner.public_website} target="_blank" rel="noreferrer" aria-label={`Site de ${partner.public_name}`}>↗</a>}
     </article>)}</div></section>}
+    <section className="sv-published-documents">
+      <PublishedDocumentLinks allVisible publicOnly title={language === 'fr' ? 'Documents publiés' : 'Published documents'} language={language} />
+    </section>
     <footer className="sv-footer"><a className="sv-brand-link" href="#home" aria-label="Scope-Verify accueil"><Brand /></a><p>{t.footer}</p><button onClick={onPartnerSignup}>{t.partnerLink}</button></footer>
   </main>
 }
