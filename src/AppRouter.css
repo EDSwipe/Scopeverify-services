@@ -124,6 +124,24 @@
   background-color: #777;
 }
 
+.moderator-access-denied {
+  min-height: calc(100vh - 64px);
+  padding: 12vh max(24px, 8vw);
+  background: #f3f0e8;
+  color: #171819;
+}
+
+.moderator-access-denied h1 {
+  margin: 0;
+  font: 500 clamp(34px, 5vw, 52px)/1.1 'Playfair Display', Georgia, serif;
+}
+
+.moderator-access-denied p {
+  max-width: 560px;
+  color: #65696a;
+  line-height: 1.7;
+}
+
 @media (max-width: 768px) {
   .home-auth-buttons {
     position: static;

@@ -1,0 +1,14 @@
+.admin-mfa-gate { display: grid; min-height: calc(100vh - 64px); place-items: center; padding: 30px 20px; background: #f3f0e8; color: #171819; }
+.admin-mfa-gate-panel { width: min(100%, 520px); padding: 30px; border: 1px solid #c9c4b9; background: white; }
+.admin-mfa-gate-kicker { margin: 0 0 16px; color: #ae8339; font: 10px 'DM Mono', monospace; letter-spacing: 1px; }
+.admin-mfa-gate-panel h1 { margin: 0 0 12px; font: 500 30px/1.15 'Playfair Display', Georgia, serif; }
+.admin-mfa-gate-panel > p:not(.admin-mfa-gate-kicker) { color: #65696a; font-size: 14px; line-height: 1.6; }
+.admin-mfa-gate-panel form { display: grid; gap: 14px; margin-top: 20px; }
+.admin-mfa-gate-panel label { display: grid; gap: 7px; color: #65696a; font-size: 12px; }
+.admin-mfa-gate-panel input { min-height: 44px; padding: 9px 11px; border: 1px solid #c9c4b9; font: 18px 'DM Mono', monospace; }
+.admin-mfa-gate-panel button { min-height: 42px; padding: 0 15px; border: 0; background: #171819; color: white; cursor: pointer; font: inherit; font-weight: 600; }
+.admin-mfa-gate-panel button:disabled { opacity: .6; cursor: wait; }
+.admin-mfa-gate-panel .admin-mfa-gate-logout { margin-top: 14px; border: 1px solid #c9c4b9; background: transparent; color: #171819; }
+.admin-mfa-gate-error { color: #a33f32; font-size: 13px; }
+
+@media (max-width: 520px) { .admin-mfa-gate-panel { padding: 22px; }.admin-mfa-gate-panel h1 { font-size: 27px; } }

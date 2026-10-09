@@ -17,3 +17,18 @@ export async function getAuthenticatedUser(request) {
   if (error || !data?.user) return null
   return data.user
 }
+
+export async function getAuthenticatorAssuranceLevel(request) {
+  const authHeader = request.headers.authorization || request.headers.Authorization || ''
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
+  const supabaseUrl = process.env.VITE_SUPABASE_URL
+  const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY
+  if (!token || !supabaseUrl || !supabaseAnonKey) return null
+
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
+  const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel(token)
+  if (error) return null
+  return data
+}

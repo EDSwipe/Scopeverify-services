@@ -1,13 +1,19 @@
 import { useState, useEffect } from 'react'
 import type { FormEvent } from 'react'
 import { supabase } from '../../supabase'
-import { missions as missionsApi } from '../../lib/missions'
+import { assignments, missions as missionsApi } from '../../lib/missions'
 import { support } from '../../lib/support'
 import { getErrorMessage } from '../../lib/errors'
+import type { MatchingPartnerDocument, MatchingPartnerProfile } from '../../lib/partner-matching'
 import { positioningContentSeeds } from '../../lib/site-positioning'
 import { parseTestimonial } from '../../lib/testimonials'
 import type { Testimonial, TestimonialDraft } from '../../lib/testimonials'
+import { parsePartnerLogo } from '../../lib/partner-logos'
+import type { PartnerLogo } from '../../lib/partner-logos'
+import AdminMfaSettings from '../Auth/AdminMfaSettings'
 import PartnerManagement from '../Partners/PartnerManagement'
+import DocumentLibrary from './DocumentLibrary'
+import PartnerRecommendations from './PartnerRecommendations'
 import AdminTeamAccess from './AdminTeamAccess'
 import SiteContentQuickEditor from './SiteContentQuickEditor'
 import { defaultGeographicCoverage, geographicCountryOptions, geographicCoverageContentKey, geographicCoverageContentSeed, parseGeographicCoverage } from '../../lib/geographic-coverage'
@@ -46,13 +52,19 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
   const [missions, setMissions] = useState<Mission[]>([])
   const [collaborators, setCollaborators] = useState<User[]>([])
   const [clients, setClients] = useState<User[]>([])
+  const [pendingPartnerApplications, setPendingPartnerApplications] = useState<Array<{ id: string; business_name: string }>>([])
+  const [matchingPartners, setMatchingPartners] = useState<MatchingPartnerProfile[]>([])
+  const [matchingPartnerDocuments, setMatchingPartnerDocuments] = useState<MatchingPartnerDocument[]>([])
+  const [missionForRecommendations, setMissionForRecommendations] = useState<Mission | null>(null)
+  const [assigningRecommendedPartnerId, setAssigningRecommendedPartnerId] = useState<string | null>(null)
   const [allUsers, setAllUsers] = useState<User[]>([])
   const [contactRequests, setContactRequests] = useState<ContactRequest[]>([])
   const [prices, setPrices] = useState<SitePrice[]>([])
   const [pageViews, setPageViews] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'missions' | 'collaborators' | 'partners' | 'team' | 'clients' | 'users' | 'messages' | 'tarifs' | 'stats' | 'support' | 'settings' | 'crm' | 'pipeline' | 'calendar' | 'content' | 'testimonials' | 'geographic' | 'legal'>('missions')
+  const [activeTab, setActiveTab] = useState<'overview' | 'missions' | 'collaborators' | 'partners' | 'team' | 'clients' | 'users' | 'messages' | 'tarifs' | 'stats' | 'support' | 'settings' | 'crm' | 'pipeline' | 'calendar' | 'content' | 'testimonials' | 'logos' | 'geographic' | 'legal' | 'document-library'>('overview')
+  const [canManageDocumentLibrary, setCanManageDocumentLibrary] = useState(false)
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null)
   const [selectedCollaborator, setSelectedCollaborator] = useState<string>('')
   const [editingPrice, setEditingPrice] = useState<SitePrice | null>(null)
@@ -69,7 +81,7 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
   const [showCreateMissionForClient, setShowCreateMissionForClient] = useState(false)
   const [missionClientMode, setMissionClientMode] = useState<'existing' | 'new'>('existing')
   const [selectedExistingClientId, setSelectedExistingClientId] = useState('')
-  const [newClientFormData, setNewClientFormData] = useState({ email: '', password: '', full_name: '', company: '' })
+  const [newClientFormData, setNewClientFormData] = useState({ email: '', full_name: '', company: '' })
   const [isCreatingClient, setIsCreatingClient] = useState(false)
   const [resolvedClientId, setResolvedClientId] = useState<string | null>(null)
   
@@ -113,6 +125,7 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
   // Legal documents states
   const [legalDocuments, setLegalDocuments] = useState<Array<{ id: string; type: string; file_name: string; file_path: string; updated_at: string }>>([])
   const [uploadingLegalDoc, setUploadingLegalDoc] = useState(false)
+  const [editingLegalDocId, setEditingLegalDocId] = useState<string | null>(null)
   const [legalDocType, setLegalDocType] = useState('mentions_legales')
   const [legalDocFile, setLegalDocFile] = useState<File | null>(null)
 
@@ -181,6 +194,11 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
   const [editingContent, setEditingContent] = useState<SiteContent | null>(null)
   const [contentFormData, setContentFormData] = useState({ content: '' })
   const [testimonials, setTestimonials] = useState<Testimonial[]>([])
+  const [partnerLogos, setPartnerLogos] = useState<PartnerLogo[]>([])
+  const [partnerLogoName, setPartnerLogoName] = useState('')
+  const [partnerLogoWebsite, setPartnerLogoWebsite] = useState('')
+  const [partnerLogoFile, setPartnerLogoFile] = useState<File | null>(null)
+  const [isSavingPartnerLogo, setIsSavingPartnerLogo] = useState(false)
   const [geographicCoverage, setGeographicCoverage] = useState<GeographicCoverageConfig>(defaultGeographicCoverage)
   const [isSavingGeographicCoverage, setIsSavingGeographicCoverage] = useState(false)
   const [geographicCoverageSaved, setGeographicCoverageSaved] = useState(false)
@@ -201,6 +219,9 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
       setLoading(true)
       if (!supabase) return
 
+      const { data: isScopeAdmin, error: adminCheckError } = await supabase.rpc('is_scope_admin')
+      if (!adminCheckError) setCanManageDocumentLibrary(isScopeAdmin === true)
+
       const { data: settingsData, error: settingsError } = await supabase.from('site_settings').select('*')
       if (settingsError) throw settingsError
       const settings = settingsData || []
@@ -212,7 +233,7 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
       const calendarModuleEnabled = getSetting('calendar_enabled', false)
       const availabilityModuleEnabled = getSetting('availability_enabled', false)
 
-      const [missionsData, collabsData, clientsData, allUsersData, contactData, pricesData, viewsData, ticketsData, crmContactsData, crmInteractionsData, crmTasksData, salesPipelinesData, pipelineStagesData, salesOpportunitiesData, calendarEventsData, collaboratorAvailabilitiesData, siteContentData, legalDocsData] = await Promise.all([
+      const [missionsData, collabsData, clientsData, allUsersData, contactData, pricesData, viewsData, ticketsData, crmContactsData, crmInteractionsData, crmTasksData, salesPipelinesData, pipelineStagesData, salesOpportunitiesData, calendarEventsData, collaboratorAvailabilitiesData, siteContentData, legalDocsData, pendingPartnerData, matchingPartnerData, matchingDocumentData] = await Promise.all([
         missionsApi.listAllMissions(),
         supabase.from('users').select('*').in('role', ['collaborator', 'partner']).eq('is_active', true),
         supabase.from('users').select('*').eq('role', 'client').order('created_at', { ascending: false }),
@@ -231,8 +252,17 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
         availabilityModuleEnabled ? supabase.from('collaborator_availability').select('*').order('date') : Promise.resolve({ data: [] }),
         supabase.from('site_content').select('*').order('section'),
         supabase.from('legal_documents').select('*').order('updated_at', { ascending: false }),
+        supabase.from('partner_profiles').select('id,business_name').eq('status', 'pending'),
+        supabase.from('partner_profiles').select('id,user_id,business_name,status,qualification_data').in('status', ['referenced', 'network']),
+        supabase.from('partner_documents').select('partner_profile_id,document_type,expires_at'),
       ])
 
+      if ((pendingPartnerData as any).error) throw (pendingPartnerData as any).error
+      setPendingPartnerApplications((pendingPartnerData as any).data || [])
+      if ((matchingPartnerData as any).error) throw (matchingPartnerData as any).error
+      if ((matchingDocumentData as any).error) throw (matchingDocumentData as any).error
+      setMatchingPartners(((matchingPartnerData as any).data || []) as MatchingPartnerProfile[])
+      setMatchingPartnerDocuments(((matchingDocumentData as any).data || []) as MatchingPartnerDocument[])
       setMissions(missionsData)
       setCollaborators((collabsData as any).data || [])
       setClients((clientsData as any).data || [])
@@ -271,7 +301,12 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
         .map(parseTestimonial)
         .filter((item): item is Testimonial => item !== null)
       setTestimonials(storedTestimonials)
-      setSiteContent([...existingContent.filter((item) => item.section !== 'testimonials' && item.section !== 'geographic'), ...addedCmsContent.filter((item) => item.section !== 'geographic')])
+      const storedPartnerLogos = existingContent
+        .filter((item) => item.section === 'partner_logos')
+        .map(parsePartnerLogo)
+        .filter((item): item is PartnerLogo => item !== null)
+      setPartnerLogos(storedPartnerLogos)
+      setSiteContent([...existingContent.filter((item) => item.section !== 'testimonials' && item.section !== 'partner_logos' && item.section !== 'geographic'), ...addedCmsContent.filter((item) => item.section !== 'geographic')])
       setLegalDocuments((legalDocsData as any).data || [])
       
       // Charger tous les paramètres
@@ -382,6 +417,72 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
       setTestimonials((current) => current.filter((item) => item.id !== testimonialId))
     } catch (err) {
       setError(getErrorMessage(err) || 'Erreur lors de la suppression du témoignage')
+    }
+  }
+
+  const handleCreatePartnerLogo = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!supabase || !partnerLogoFile) return
+    const formElement = event.currentTarget
+
+    try {
+      setIsSavingPartnerLogo(true)
+      setError(null)
+      const safeFileName = partnerLogoFile.name.replace(/[^\w.-]/g, '_')
+      const logoPath = `managed/${crypto.randomUUID()}-${safeFileName}`
+      const { error: uploadError } = await supabase.storage
+        .from('partner-public-assets')
+        .upload(logoPath, partnerLogoFile, { contentType: partnerLogoFile.type })
+      if (uploadError) throw uploadError
+
+      const key = `logo-${crypto.randomUUID()}`
+      const { data, error: insertError } = await supabase
+        .from('site_content')
+        .insert({
+          section: 'partner_logos',
+          key,
+          language: 'fr',
+          content: JSON.stringify({ name: partnerLogoName.trim(), website: partnerLogoWebsite.trim(), logo_path: logoPath }),
+          updated_by: adminId,
+        })
+        .select('section,key,content')
+        .single()
+
+      if (insertError) {
+        await supabase.storage.from('partner-public-assets').remove([logoPath])
+        throw insertError
+      }
+      const logo = parsePartnerLogo(data)
+      if (!logo) throw new Error('Les informations du logo enregistré sont invalides.')
+
+      setPartnerLogos((current) => [...current, logo])
+      setPartnerLogoName('')
+      setPartnerLogoWebsite('')
+      setPartnerLogoFile(null)
+      formElement.reset()
+    } catch (err) {
+      setError(getErrorMessage(err) || 'Erreur lors de l’ajout du logo partenaire')
+    } finally {
+      setIsSavingPartnerLogo(false)
+    }
+  }
+
+  const handleDeletePartnerLogo = async (logo: PartnerLogo) => {
+    if (!supabase || !confirm(`Retirer le logo de ${logo.name} du site ?`)) return
+    try {
+      const { error: deleteError } = await supabase
+        .from('site_content')
+        .delete()
+        .eq('section', 'partner_logos')
+        .eq('key', logo.id)
+        .eq('language', 'fr')
+      if (deleteError) throw deleteError
+
+      setPartnerLogos((current) => current.filter((item) => item.id !== logo.id))
+      const { error: storageError } = await supabase.storage.from('partner-public-assets').remove([logo.logo_path])
+      if (storageError) console.error('Partner logo cleanup error:', storageError)
+    } catch (err) {
+      setError(getErrorMessage(err) || 'Erreur lors de la suppression du logo partenaire')
     }
   }
 
@@ -508,6 +609,7 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
   const handleUploadLegalDocument = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!supabase || !legalDocFile) return
+    const formElement = e.currentTarget
 
     try {
       setUploadingLegalDoc(true)
@@ -522,16 +624,29 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
 
       if (uploadError) throw uploadError
 
-      const { error: dbError } = await supabase
-        .from('legal_documents')
-        .insert({
+      const documentValues = {
           type: legalDocType,
           file_name: legalDocFile.name,
           file_path: filePath,
           updated_by: adminId,
-        })
+          updated_at: new Date().toISOString(),
+      }
+      const { error: dbError } = editingLegalDocId
+        ? await supabase.from('legal_documents').update(documentValues).eq('id', editingLegalDocId)
+        : await supabase.from('legal_documents').insert(documentValues)
 
-      if (dbError) throw dbError
+      if (dbError) {
+        await supabase.storage.from('legal-documents').remove([filePath])
+        throw dbError
+      }
+
+      if (editingLegalDocId) {
+        const previousDoc = legalDocuments.find((doc) => doc.id === editingLegalDocId)
+        if (previousDoc) {
+          const { error: removeError } = await supabase.storage.from('legal-documents').remove([previousDoc.file_path])
+          if (removeError) console.error('Previous legal document cleanup error:', removeError)
+        }
+      }
 
       const { data: updatedDocs } = await supabase
         .from('legal_documents')
@@ -540,8 +655,10 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
 
       setLegalDocuments((updatedDocs as any) || [])
       setLegalDocFile(null)
+      setEditingLegalDocId(null)
       setLegalDocType('mentions_legales')
-      alert('✅ Document juridique téléchargé avec succès!')
+      formElement.reset()
+      alert(editingLegalDocId ? '✅ Document juridique remplacé avec succès!' : '✅ Document juridique téléchargé avec succès!')
     } catch (err) {
       setError(getErrorMessage(err) || 'Erreur lors du téléchargement')
     } finally {
@@ -731,88 +848,36 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
 
     if (isCreatingClient) return
 
-    if (!supabase || !newClientFormData.email || !newClientFormData.password || !newClientFormData.full_name) {
-      setError('Remplissez tous les champs requis (Nom, Email, Mot de passe)')
-      return
-    }
-
-    if (newClientFormData.password.length < 8) {
-      setError('Le mot de passe doit contenir au moins 8 caractères')
+    if (!supabase || !newClientFormData.email || !newClientFormData.full_name) {
+      setError('Remplissez les champs requis (Nom et Email)')
       return
     }
 
     try {
       setError(null)
       setIsCreatingClient(true)
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) throw new Error('Session administrateur introuvable')
 
-      // Check if user already exists in users table
-      const { data: existingUser } = await supabase
-        .from('users')
-        .select('*')
-        .eq('email', newClientFormData.email.toLowerCase())
-        .single()
-
-      if (existingUser) {
-        setError('❌ Cet email existe déjà. Veuillez utiliser un client existant ou un autre email.')
-        setIsCreatingClient(false)
-        return
-      }
-
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: newClientFormData.email.toLowerCase(),
-        password: newClientFormData.password,
+      const response = await fetch('/api/admin-clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          email: newClientFormData.email,
+          fullName: newClientFormData.full_name,
+          company: newClientFormData.company,
+        }),
       })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Invitation du client impossible')
+      if (!result.userId) throw new Error('L’invitation ne contient pas d’identifiant client')
 
-      if (authError) {
-        if (authError.message?.includes('429')) {
-          setError('⚠️ Rate limit. Veuillez attendre 30 secondes et réessayer.')
-        } else if (authError.message?.includes('already registered') || authError.message?.includes('already exists')) {
-          setError('❌ Cet email est déjà utilisé dans l\'authentification. Veuillez utiliser un autre email.')
-        } else {
-          setError(`❌ Erreur: ${authError.message || 'Authentification échouée'}`)
-        }
-        setIsCreatingClient(false)
-        return
-      }
-
-      if (!authData.user) throw new Error('Création utilisateur échouée')
-
-      await new Promise((resolve) => setTimeout(resolve, 300))
-
-      const { error: profileError } = await supabase.from('users').insert({
-        id: authData.user.id,
-        email: newClientFormData.email.toLowerCase(),
-        full_name: newClientFormData.full_name,
-        company: newClientFormData.company || '',
-        role: 'client',
-        is_active: true,
-      })
-
-      if (profileError) {
-        console.error('Profile error:', profileError.message)
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, 300))
-
-      const { data: clientsData } = await supabase
-        .from('users')
-        .select('*')
-        .eq('role', 'client')
-        .order('created_at', { ascending: false })
-
-      setClients((clientsData as any) || [])
-
-      const email = newClientFormData.email
-      setNewClientFormData({ email: '', password: '', full_name: '', company: '' })
-      setShowCreateMissionForClient(false)
+      setNewClientFormData({ email: '', full_name: '', company: '' })
+      setResolvedClientId(result.userId)
       setError(null)
-      setIsCreatingClient(false)
-
-      alert(`✅ Client créé!\n\nEmail: ${email}\nIl peut se connecter maintenant.`)
     } catch (err) {
-      const errorMsg = getErrorMessage(err)
-      setError(`❌ ${errorMsg}`)
-      console.error('Error creating client:', err)
+      setError(getErrorMessage(err) || 'Invitation du client impossible')
+    } finally {
       setIsCreatingClient(false)
     }
   }
@@ -839,7 +904,7 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
     setResolvedClientId(null)
     setSelectedExistingClientId('')
     setMissionClientMode('existing')
-    setNewClientFormData({ email: '', password: '', full_name: '', company: '' })
+    setNewClientFormData({ email: '', full_name: '', company: '' })
   }
 
   // Calls one of the /api/notify-* endpoints with the current session token so
@@ -961,8 +1026,28 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
           missionLocation: mission.location,
         })
       }
+      return true
     } catch (err) {
       setError(getErrorMessage(err) || 'Erreur d\'assignation')
+      return false
+    }
+  }
+
+  const handleAssignRecommendedPartner = async (partner: MatchingPartnerProfile) => {
+    if (!missionForRecommendations || !partner.user_id || assigningRecommendedPartnerId) return
+    if (!window.confirm(`Affecter « ${partner.business_name} » à la mission « ${missionForRecommendations.title} » ?`)) return
+
+    setAssigningRecommendedPartnerId(partner.user_id)
+    try {
+      const assigned = await handleAssignMissionToCollab(partner.user_id, missionForRecommendations.id)
+      if (assigned) {
+        setMissions((current) => current.map((mission) => mission.id === missionForRecommendations.id
+          ? { ...mission, assigned_to: partner.user_id || undefined, partner_profile_id: partner.id }
+          : mission))
+        setMissionForRecommendations(null)
+      }
+    } finally {
+      setAssigningRecommendedPartnerId(null)
     }
   }
 
@@ -1103,6 +1188,8 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
   const needsReviewCount = missions.filter(
     (m) => m.status === 'completed' && (m.validation_status ?? 'pending') === 'pending',
   ).length
+  const submittedMissionCount = missions.filter((mission) => mission.status === 'submitted').length
+  const newContactCount = contactRequests.filter((request) => request.status === 'new').length
 
   return (
     <div className="admin-dashboard">
@@ -1114,6 +1201,13 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
           </button>
         </div>
         <div className="admin-tabs-nav">
+          <button
+            className={activeTab === 'overview' ? 'active' : ''}
+            onClick={() => setActiveTab('overview')}
+          >
+            À traiter
+            {pendingPartnerApplications.length + submittedMissionCount + needsReviewCount + newContactCount > 0 && <span className="badge-alert">{pendingPartnerApplications.length + submittedMissionCount + needsReviewCount + newContactCount}</span>}
+          </button>
           <button
             className={activeTab === 'missions' ? 'active' : ''}
             onClick={() => setActiveTab('missions')}
@@ -1218,17 +1312,23 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
             💬 Témoignages ({testimonials.length})
           </button>
           <button
+            className={activeTab === 'logos' ? 'active' : ''}
+            onClick={() => setActiveTab('logos')}
+          >
+            🖼️ Logos partenaires ({partnerLogos.length})
+          </button>
+          <button
             className={activeTab === 'stats' ? 'active' : ''}
             onClick={() => setActiveTab('stats')}
           >
             📊 Statistiques
           </button>
-          <button
-            className={activeTab === 'legal' ? 'active' : ''}
-            onClick={() => setActiveTab('legal')}
+          {canManageDocumentLibrary && <button
+            className={activeTab === 'document-library' ? 'active' : ''}
+            onClick={() => setActiveTab('document-library')}
           >
-            ⚖️ Documents juridiques ({legalDocuments.length})
-          </button>
+            📚 Bibliothèque de documents
+          </button>}
         </div>
       </header>
 
@@ -1236,6 +1336,39 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
 
       {activeTab === 'partners' && <PartnerManagement adminId={adminId} />}
       {activeTab === 'team' && <AdminTeamAccess />}
+      {canManageDocumentLibrary && activeTab === 'document-library' && <DocumentLibrary adminId={adminId} />}
+
+      {activeTab === 'overview' && (
+        <section className="admin-section admin-action-overview">
+          <h2>À traiter</h2>
+          <p>Les éléments qui nécessitent une action apparaissent ici.</p>
+          <div className="admin-action-list">
+            {pendingPartnerApplications.length > 0 && <article className="admin-action-row">
+              <div><strong>Candidatures partenaires</strong><span>{pendingPartnerApplications.slice(0, 3).map((partner) => partner.business_name).filter(Boolean).join(' · ')}</span></div>
+              <strong className="admin-action-count">{pendingPartnerApplications.length}</strong>
+              <button type="button" onClick={() => setActiveTab('partners')}>Examiner</button>
+            </article>}
+            {submittedMissionCount > 0 && <article className="admin-action-row">
+              <div><strong>Nouvelles demandes de mission</strong><span>Demandes envoyées par les clients à qualifier.</span></div>
+              <strong className="admin-action-count">{submittedMissionCount}</strong>
+              <button type="button" onClick={() => setActiveTab('missions')}>Ouvrir</button>
+            </article>}
+            {needsReviewCount > 0 && <article className="admin-action-row">
+              <div><strong>Livrables à valider</strong><span>Missions clôturées par un collaborateur.</span></div>
+              <strong className="admin-action-count">{needsReviewCount}</strong>
+              <button type="button" onClick={() => setActiveTab('missions')}>Valider</button>
+            </article>}
+            {newContactCount > 0 && <article className="admin-action-row">
+              <div><strong>Nouvelles demandes de contact</strong><span>Messages en attente de traitement.</span></div>
+              <strong className="admin-action-count">{newContactCount}</strong>
+              <button type="button" onClick={() => setActiveTab('messages')}>Lire</button>
+            </article>}
+            {pendingPartnerApplications.length + submittedMissionCount + needsReviewCount + newContactCount === 0 && (
+              <p className="admin-action-empty">Aucune action urgente pour le moment.</p>
+            )}
+          </div>
+        </section>
+      )}
 
       {activeTab === 'missions' && (
         <section className="admin-section">
@@ -1315,18 +1448,6 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
                         />
                       </div>
                       <div className="form-group">
-                        <label>Mot de passe temporaire *</label>
-                        <input
-                          type="password"
-                          value={newClientFormData.password}
-                          onChange={(e) => setNewClientFormData({ ...newClientFormData, password: e.target.value })}
-                          placeholder="Minimum 8 caractères"
-                          disabled={isCreatingClient}
-                          required
-                          autoComplete="new-password"
-                        />
-                      </div>
-                      <div className="form-group">
                         <label>Entreprise</label>
                         <input
                           type="text"
@@ -1337,11 +1458,10 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
                         />
                       </div>
                       <p style={{ fontSize: '0.85rem', color: '#65696a' }}>
-                        Communiquez ce mot de passe au client, ou il pourra utiliser "Mot de passe oublié" pour en
-                        définir un lui-même.
+                        Le client recevra une invitation par email pour définir son mot de passe. Vous pourrez ensuite préparer sa première mission.
                       </p>
                       <button type="submit" className="btn-confirm" disabled={isCreatingClient} style={{ width: '100%' }}>
-                        {isCreatingClient ? '⏳ Création en cours...' : 'Créer le client et continuer'}
+                        {isCreatingClient ? '⏳ Envoi de l’invitation...' : 'Inviter le client et continuer'}
                       </button>
                     </form>
                   )}
@@ -1508,6 +1628,14 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
                                 ✗
                               </button>
                               <button
+                                type="button"
+                                className="btn-partner-match"
+                                onClick={() => setMissionForRecommendations(mission)}
+                                title="Voir les partenaires les plus adaptés"
+                              >
+                                Recommander
+                              </button>
+                              <button
                                 onClick={() => {
                                   setSelectedCollaborator('')
                                   setShowValidationModal(false)
@@ -1595,6 +1723,13 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
                           }}
                         >
                           👁️ Voir détails
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-partner-match"
+                          onClick={() => setMissionForRecommendations(mission)}
+                        >
+                          Recommander un partenaire
                         </button>
                         {mission.status !== 'completed' && (
                           <button
@@ -1992,6 +2127,15 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
               </div>
             </div>
           )}
+          {missionForRecommendations && <PartnerRecommendations
+            mission={missionForRecommendations}
+            partners={matchingPartners}
+            activeUsers={collaborators}
+            documents={matchingPartnerDocuments}
+            assigningPartnerId={assigningRecommendedPartnerId}
+            onAssign={(partner) => void handleAssignRecommendedPartner(partner)}
+            onClose={() => setMissionForRecommendations(null)}
+          />}
         </section>
       )}
 
@@ -2716,6 +2860,7 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
       {activeTab === 'settings' && (
         <section className="admin-section">
           <h2>Paramètres du site</h2>
+          <AdminMfaSettings />
           <div style={{ 
             backgroundColor: 'white', 
             border: '1px solid #c9c4b9', 
@@ -4577,6 +4722,41 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
         </section>
       )}
 
+      {activeTab === 'logos' && (
+        <section className="admin-section partner-logo-management">
+          <h2>Logos partenaires</h2>
+          <p>Ajoutez les partenaires que vous souhaitez présenter dans le carrousel public. Un logo apparaît dès son ajout.</p>
+          <form className="partner-logo-form" onSubmit={handleCreatePartnerLogo}>
+            <label>Nom du partenaire
+              <input required value={partnerLogoName} onChange={(event) => setPartnerLogoName(event.target.value)} />
+            </label>
+            <label>Site web (facultatif)
+              <input type="url" placeholder="https://exemple.com" value={partnerLogoWebsite} onChange={(event) => setPartnerLogoWebsite(event.target.value)} />
+            </label>
+            <label>Logo (PNG, JPEG ou WebP, 5 Mo maximum)
+              <input required type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => setPartnerLogoFile(event.target.files?.[0] || null)} />
+            </label>
+            <button className="btn-confirm" type="submit" disabled={isSavingPartnerLogo || !partnerLogoFile}>
+              {isSavingPartnerLogo ? 'Ajout en cours...' : 'Ajouter et afficher le logo'}
+            </button>
+          </form>
+
+          {partnerLogos.length === 0 ? (
+            <p className="partner-logo-empty">Aucun logo ajouté. Le carrousel apparaîtra sur le site après le premier ajout.</p>
+          ) : (
+            <div className="partner-logo-admin-list">
+              {partnerLogos.map((logo) => (
+                <article className="partner-logo-admin-item" key={logo.id}>
+                  <img src={supabase?.storage.from('partner-public-assets').getPublicUrl(logo.logo_path).data.publicUrl} alt="" />
+                  <div><strong>{logo.name}</strong>{logo.website && <a href={logo.website} target="_blank" rel="noreferrer">{logo.website}</a>}</div>
+                  <button className="btn-delete" type="button" onClick={() => handleDeletePartnerLogo(logo)}>Retirer</button>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
       {activeTab === 'content' && (
         <section className="admin-section">
           <h2>Contenu du site</h2>
@@ -4794,7 +4974,8 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
             Ces documents seront accessibles aux visiteurs via le site public.
           </p>
 
-          <form onSubmit={handleUploadLegalDocument} style={{ marginBottom: '2rem', padding: '1.5rem', background: '#f5f5f5', borderRadius: '8px' }}>
+          <form id="legal-document-form" onSubmit={handleUploadLegalDocument} style={{ marginBottom: '2rem', padding: '1.5rem', background: '#f5f5f5', borderRadius: '8px' }}>
+            <h3>{editingLegalDocId ? 'Remplacer un document existant' : 'Ajouter un document juridique'}</h3>
             <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))' }}>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
@@ -4840,8 +5021,22 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
                 cursor: uploadingLegalDoc ? 'not-allowed' : 'pointer',
               }}
             >
-              {uploadingLegalDoc ? 'Téléchargement...' : '📤 Télécharger le document'}
+              {uploadingLegalDoc ? 'Enregistrement...' : editingLegalDocId ? 'Remplacer le document' : '📤 Télécharger le document'}
             </button>
+            {editingLegalDocId && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingLegalDocId(null)
+                  setLegalDocFile(null)
+                  setLegalDocType('mentions_legales')
+                  document.querySelector<HTMLFormElement>('#legal-document-form')?.reset()
+                }}
+                style={{ marginTop: '1rem', marginLeft: '0.75rem' }}
+              >
+                Annuler le remplacement
+              </button>
+            )}
           </form>
 
           <div style={{ marginTop: '2rem' }}>
@@ -4877,6 +5072,17 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
                       </span>
                     </div>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button
+                        onClick={() => {
+                          setEditingLegalDocId(doc.id)
+                          setLegalDocType(doc.type)
+                          setLegalDocFile(null)
+                          document.getElementById('legal-document-form')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                        }}
+                        style={{ padding: '0.4rem 0.8rem', background: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                      >
+                        Remplacer
+                      </button>
                       <button
                         onClick={() => handleDownloadLegalDocument(doc.file_path, doc.file_name)}
                         style={{

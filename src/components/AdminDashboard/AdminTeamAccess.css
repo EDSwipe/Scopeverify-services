@@ -1,0 +1,39 @@
+.team-access { --team-ink: #171819; --team-paper: #f3f0e8; --team-line: #c9c4b9; --team-muted: #65696a; --team-gold: #ae8339; padding: 28px clamp(16px, 3vw, 36px) 44px; color: var(--team-ink); }
+.team-access-header { margin-bottom: 22px; }
+.team-access-kicker { margin: 0 0 10px; color: var(--team-gold); font: 10px 'DM Mono', monospace; letter-spacing: 1px; }
+.team-access-header h2 { margin: 0; font: 500 34px/1.1 'Playfair Display', Georgia, serif; }
+.team-access-header > div > p:last-child, .team-invite-heading p, .team-moderator-list header p { margin: 8px 0 0; color: var(--team-muted); font-size: 13px; line-height: 1.5; }
+.team-access-message { padding: 11px 14px; border-left: 3px solid var(--team-gold); background: #e5dfd2; font-size: 13px; }
+.team-access-message.error { border-color: #9c3d32; color: #7a3028; }
+.team-access-message.success { color: var(--team-ink); }
+.team-invite-form, .team-moderator { padding: 20px; border: 1px solid var(--team-line); background: var(--team-paper); }
+.team-invite-form { margin-bottom: 28px; }
+.team-invite-heading h3, .team-moderator-list h3 { margin: 0; font: 500 21px/1.2 'Playfair Display', Georgia, serif; }
+.team-invite-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 18px 0; }
+.team-invite-fields label { display: grid; gap: 6px; color: var(--team-muted); font-size: 11px; }
+.team-invite-fields input { width: 100%; min-width: 0; padding: 10px; border: 1px solid var(--team-line); border-radius: 0; background: #fffdfa; color: var(--team-ink); font: 14px 'Manrope', sans-serif; }
+.team-permission-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; margin: 16px 0; padding: 13px; border: 1px solid var(--team-line); }
+.team-permission-options legend { padding: 0 5px; color: var(--team-muted); font-size: 11px; }
+.team-permission-options label { display: flex; align-items: flex-start; gap: 9px; min-width: 0; cursor: pointer; }
+.team-permission-options input { flex: 0 0 16px; width: 16px; height: 16px; margin: 2px 0 0; accent-color: var(--team-gold); }
+.team-permission-options span { display: grid; gap: 3px; }
+.team-permission-options strong { font-size: 12px; }
+.team-permission-options small { color: var(--team-muted); font-size: 10px; line-height: 1.45; }
+.team-primary, .team-secondary { min-height: 38px; padding: 0 14px; border: 0; cursor: pointer; font: 600 12px 'Manrope', sans-serif; }
+.team-primary { background: var(--team-gold); color: var(--team-ink); }
+.team-secondary { border: 1px solid var(--team-line); background: transparent; color: var(--team-ink); }
+.team-primary:disabled, .team-secondary:disabled { opacity: .45; cursor: not-allowed; }
+.team-moderator-list > header { margin-bottom: 12px; }
+.team-moderator-list > header p { margin-top: 4px; }
+.team-moderator { margin-top: 10px; }
+.team-moderator-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.team-moderator-head > div { display: grid; gap: 4px; }
+.team-moderator-head strong { font-size: 14px; }
+.team-moderator-head > div > span { color: var(--team-muted); font-size: 11px; }
+.team-status { padding: 4px 8px; border: 1px solid var(--team-line); color: var(--team-muted); font: 10px 'DM Mono', monospace; }
+.team-status.active { border-color: var(--team-gold); color: var(--team-ink); }
+.team-status.inactive { color: #7a3028; }
+.team-permission-options.compact { margin-bottom: 12px; }
+.team-moderator-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.team-empty { padding: 18px; border: 1px dashed var(--team-line); color: var(--team-muted); font-size: 13px; }
+@media (max-width: 640px) { .team-invite-fields, .team-permission-options { grid-template-columns: 1fr; }.team-invite-form, .team-moderator { padding: 15px; }.team-access-header h2 { font-size: 30px; } }

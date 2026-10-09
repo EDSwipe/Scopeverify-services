@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from 'react'
 import type { Mission, MissionType } from '../../types'
 import { missionTypeLabels } from '../../types'
-import { missions as missionAPI } from '../../lib/missions'
+import { documents, missions as missionAPI } from '../../lib/missions'
 import { getErrorMessage } from '../../lib/errors'
+import PublishedDocumentLinks from '../PublishedDocumentLinks'
 import './MissionForm.css'
 
 // Pre-filled checklist items per "formule" (mission type). The client can
@@ -57,6 +58,8 @@ export default function MissionForm({ clientId, onSave, onCancel, initialMission
   const [missionType, setMissionType] = useState<MissionType>(initialMission?.mission_type || 'custom')
   const [location, setLocation] = useState(initialMission?.location || '')
   const [budget, setBudget] = useState(initialMission?.budget || '')
+  const [requestedDeadline, setRequestedDeadline] = useState(initialMission?.requested_deadline || '')
+  const [attachments, setAttachments] = useState<File[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
@@ -121,6 +124,7 @@ export default function MissionForm({ clientId, onSave, onCancel, initialMission
         mission_type: missionType,
         location,
         budget,
+        requested_deadline: requestedDeadline || undefined,
         requirements: { ...(initialMission?.requirements || {}), checklist },
         status: initialMission?.status || 'draft',
       }
@@ -130,6 +134,10 @@ export default function MissionForm({ clientId, onSave, onCancel, initialMission
         saved = await missionAPI.updateMission(initialMission.id, missionData)
       } else {
         saved = await missionAPI.createMission(missionData)
+      }
+
+      for (const file of attachments) {
+        await documents.uploadDocument(saved.id, file, clientId)
       }
 
       setSuccess(true)
@@ -142,6 +150,8 @@ export default function MissionForm({ clientId, onSave, onCancel, initialMission
         setMissionType('custom')
         setLocation('')
         setBudget('')
+        setRequestedDeadline('')
+        setAttachments([])
         setPresetChecks(buildPresetState('custom', []))
         setCustomItems([])
       }
@@ -217,6 +227,29 @@ export default function MissionForm({ clientId, onSave, onCancel, initialMission
           placeholder="Ex: 1500 EUR"
         />
       </label>
+
+      <label>
+        Délai souhaité
+        <input
+          type="date"
+          value={requestedDeadline}
+          onChange={(e) => setRequestedDeadline(e.target.value)}
+          disabled={isLoading}
+        />
+      </label>
+
+      <PublishedDocumentLinks categoryKey="mission-requests" title="Documents utiles pour votre demande" />
+
+      <label>
+        Documents utiles
+        <input
+          type="file"
+          multiple
+          onChange={(e) => setAttachments(Array.from(e.target.files || []))}
+          disabled={isLoading}
+        />
+      </label>
+      {attachments.length > 0 && <p>{attachments.map((file) => file.name).join(', ')}</p>}
 
       <div className="checklist-section">
         <p className="checklist-label">Éléments à vérifier (pré-remplis selon la formule)</p>

@@ -1,5 +1,6 @@
 // Types pour le système de gestion de missions
-export type UserRole = 'admin' | 'client' | 'collaborator'
+export type UserRole = 'admin' | 'moderator' | 'client' | 'collaborator' | 'partner'
+export type ModeratorPermission = 'partners.review' | 'partners.documents'
 
 export type Permission = 
   | 'manage_users'
@@ -57,6 +58,7 @@ export interface User {
   full_name?: string
   company?: string
   is_active: boolean
+  permissions?: ModeratorPermission[]
   created_at: string
   updated_at: string
 }
@@ -73,7 +75,9 @@ export interface Mission {
   validation_notes?: string
   requirements?: Record<string, any>
   budget?: string
+  requested_deadline?: string
   assigned_to?: string
+  partner_profile_id?: string
   created_at: string
   updated_at: string
 }
@@ -318,7 +322,7 @@ export const eventTypeLabels: Record<EventType, string> = {
   other: 'Autre',
 }
 
-export type SiteContentSection = 'hero' | 'intro' | 'missions' | 'process' | 'deliverables' | 'limits' | 'contact' | 'footer'
+export type SiteContentSection = 'hero' | 'intro' | 'situations' | 'missions' | 'process' | 'deliverables' | 'limits' | 'pricing' | 'contact' | 'testimonials' | 'geographic' | 'footer'
 export type SiteContentLanguage = 'fr' | 'en'
 
 export interface SiteContent {
@@ -334,10 +338,14 @@ export interface SiteContent {
 export const siteContentSections: Record<SiteContentSection, string> = {
   hero: 'Hero',
   intro: 'Introduction',
+  situations: 'Situations',
   missions: 'Missions',
   process: 'Processus',
   deliverables: 'Livrables',
   limits: 'Limites',
+  pricing: 'Tarifs',
   contact: 'Contact',
+  testimonials: 'Témoignages',
+  geographic: 'Carte géographique',
   footer: 'Pied de page'
 }

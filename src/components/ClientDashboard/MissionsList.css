@@ -195,6 +195,23 @@
   background-color: #f0f6ff;
 }
 
+.mission-actions .btn-submit-mission {
+  color: white;
+  border-color: #171819;
+  background: #171819;
+}
+
+.mission-actions .btn-submit-mission:hover:not(:disabled) {
+  border-color: #ae8339;
+  background: #ae8339;
+  color: #171819;
+}
+
+.mission-actions .btn-submit-mission:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
 .mission-actions .btn-delete {
   color: #c00;
   border-color: #c00;
@@ -212,3 +229,45 @@
 .mission-actions .btn-view:hover {
   background-color: #f5f5f5;
 }
+
+.mission-detail-backdrop {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: #101714b8;
+}
+
+.mission-detail-dialog {
+  position: relative;
+  width: min(100%, 760px);
+  max-height: min(88vh, 900px);
+  overflow-y: auto;
+  padding: clamp(22px, 4vw, 42px);
+  background: #f8f9f5;
+  color: #192320;
+}
+
+.mission-detail-close {
+  position: absolute;
+  top: 12px;
+  right: 15px;
+  border: 0;
+  background: transparent;
+  color: #192320;
+  cursor: pointer;
+  font-size: 26px;
+}
+
+.mission-detail-kicker { color: #ba5c40; font: 11px 'DM Mono', monospace; }
+.mission-detail-dialog h2 { margin: 0 32px 15px 0; font: 400 clamp(28px, 4vw, 40px)/1.12 Georgia, 'Times New Roman', serif; }
+.mission-detail-dialog p { line-height: 1.6; }
+.mission-report { margin-top: 22px; padding-top: 17px; border-top: 1px solid #c9cec6; }
+.mission-report h3 { margin: 0 0 12px; font: 18px Georgia, 'Times New Roman', serif; }
+.mission-report ul { display: grid; gap: 8px; padding-left: 20px; }
+.mission-report li { line-height: 1.5; }
+.mission-report li button { padding: 0; border: 0; background: none; color: #192320; text-decoration: underline; cursor: pointer; }
+.mission-detail-note { padding: 12px; background: #ecefe8; }
+.mission-detail-muted { color: #66716b; }

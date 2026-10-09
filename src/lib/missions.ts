@@ -68,6 +68,10 @@ export const missions = {
     return data as Mission
   },
 
+  async submitMission(id: string): Promise<Mission> {
+    return this.updateMission(id, { status: 'submitted' })
+  },
+
   async deleteMission(id: string): Promise<void> {
     if (!supabase) throw new Error('Supabase not configured')
     const { error } = await supabase
@@ -109,15 +113,28 @@ export const assignments = {
       .single()
     if (error) throw error
 
-    // Update mission assigned_to
-    await supabase.from('missions').update({ assigned_to: collaboratorId }).eq('id', missionId)
+    const { data: partnerProfile, error: partnerLookupError } = await supabase
+      .from('partner_profiles')
+      .select('id')
+      .eq('user_id', collaboratorId)
+      .maybeSingle()
+    if (partnerLookupError) throw partnerLookupError
+
+    const { error: missionUpdateError } = await supabase
+      .from('missions')
+      .update({
+        assigned_to: collaboratorId,
+        partner_profile_id: partnerProfile?.id ?? null,
+      })
+      .eq('id', missionId)
+    if (missionUpdateError) throw missionUpdateError
 
     return data as MissionAssignment
   },
 
   async updateAssignmentStatus(id: string, status: string): Promise<MissionAssignment> {
     if (!supabase) throw new Error('Supabase not configured')
-    const updateData: Record<string, any> = { assignment_status: status }
+    const updateData: Record<string, string> = { assignment_status: status }
     if (status === 'in_progress') {
       updateData.started_at = new Date().toISOString()
     } else if (status === 'completed') {
@@ -198,9 +215,10 @@ export const documents = {
 
   async getDocumentUrl(filePath: string): Promise<string> {
     if (!supabase) throw new Error('Supabase not configured')
-    const { data } = await supabase.storage
+    const { data, error } = await supabase.storage
       .from('mission-documents')
       .createSignedUrl(filePath, 3600) // 1 hour expiry
+    if (error) throw error
     return data?.signedUrl || ''
   },
 }
