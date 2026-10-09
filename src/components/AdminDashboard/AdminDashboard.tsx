@@ -65,6 +65,7 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'overview' | 'missions' | 'collaborators' | 'partners' | 'team' | 'clients' | 'users' | 'messages' | 'tarifs' | 'stats' | 'support' | 'settings' | 'crm' | 'pipeline' | 'calendar' | 'content' | 'testimonials' | 'logos' | 'geographic' | 'legal' | 'document-library'>('overview')
   const [canManageDocumentLibrary, setCanManageDocumentLibrary] = useState(false)
+  const [documentLibraryAccessNotice, setDocumentLibraryAccessNotice] = useState<string | null>(null)
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null)
   const [selectedCollaborator, setSelectedCollaborator] = useState<string>('')
   const [editingPrice, setEditingPrice] = useState<SitePrice | null>(null)
@@ -217,10 +218,22 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
   const loadData = async () => {
     try {
       setLoading(true)
-      if (!supabase) return
+      if (!supabase) {
+        setDocumentLibraryAccessNotice('La bibliothèque est indisponible : Supabase n’est pas configuré.')
+        return
+      }
 
       const { data: isScopeAdmin, error: adminCheckError } = await supabase.rpc('is_scope_admin')
-      if (!adminCheckError) setCanManageDocumentLibrary(isScopeAdmin === true)
+      if (adminCheckError) {
+        setCanManageDocumentLibrary(false)
+        setDocumentLibraryAccessNotice(`La bibliothèque est masquée : ${getErrorMessage(adminCheckError)}. Vérifiez la session administrateur et les migrations MFA.`)
+      } else if (isScopeAdmin !== true) {
+        setCanManageDocumentLibrary(false)
+        setDocumentLibraryAccessNotice('La bibliothèque est masquée car cette session n’est pas reconnue comme administrateur actif. Reconnectez-vous avec le compte administrateur et terminez la vérification MFA si elle est demandée.')
+      } else {
+        setCanManageDocumentLibrary(true)
+        setDocumentLibraryAccessNotice(null)
+      }
 
       const { data: settingsData, error: settingsError } = await supabase.from('site_settings').select('*')
       if (settingsError) throw settingsError
@@ -1333,6 +1346,7 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
       </header>
 
       {error && <p className="admin-error">{error}</p>}
+      {documentLibraryAccessNotice && <p className="admin-error" role="alert">{documentLibraryAccessNotice}</p>}
 
       {activeTab === 'partners' && <PartnerManagement adminId={adminId} />}
       {activeTab === 'team' && <AdminTeamAccess />}
